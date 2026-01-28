@@ -1,0 +1,9 @@
+{
+	"id": "recursive-goals",
+	"name": "Recursive Goals",
+	"version": "0.0.1",
+	"minAppVersion": "1.5.0",
+	"description": "Automatically calculates accumulated progress for hierarchical goal trees.",
+	"author": "Monika Petkova",
+	"isDesktopOnly": false
+}
