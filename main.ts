@@ -33,6 +33,18 @@ export default class RecursiveGoalsPlugin extends Plugin {
 	async onload() {
 		await this.loadSettings();
 		this.addSettingTab(new RecursiveGoalsSettingTab(this.app, this));
+
+		this.app.workspace.onLayoutReady(() => {
+			this.processAllGoals();
+		});
+
+		this.registerEvent(
+			this.app.metadataCache.on("changed", (file) => {
+				if (file instanceof TFile && this.isGoalFile(file)) {
+					this.processAllGoals();
+				}
+			})
+		);
 	}
 
 	onunload() {}
@@ -243,6 +255,13 @@ export default class RecursiveGoalsPlugin extends Plugin {
 				}
 			}
 		});
+	}
+
+	async processAllGoals(): Promise<void> {
+		const graph = this.buildGoalGraph();
+		for (const path of graph.keys()) {
+			await this.updateGoalFile(graph, path);
+		}
 	}
 }
 
