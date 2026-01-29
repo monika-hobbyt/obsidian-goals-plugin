@@ -157,6 +157,27 @@ export default class RecursiveGoalsPlugin extends Plugin {
 
 		return this.findRootGoal(graph, node.parentPath, visited);
 	}
+
+	findLatestDate(graph: Map<string, GoalNode>, path: string, visited: Set<string> = new Set()): string | null {
+		if (visited.has(path)) return null;
+		visited.add(path);
+
+		const node = graph.get(path);
+		if (!node) return null;
+
+		if (node.children.length === 0) {
+			return node.expectedAcquireDate;
+		}
+
+		let latest: string | null = null;
+		for (const childPath of node.children) {
+			const childDate = this.findLatestDate(graph, childPath, visited);
+			if (childDate && (!latest || childDate > latest)) {
+				latest = childDate;
+			}
+		}
+		return latest;
+	}
 }
 
 class RecursiveGoalsSettingTab extends PluginSettingTab {
