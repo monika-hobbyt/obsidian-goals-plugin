@@ -80,13 +80,13 @@ Goals are organized in a tree structure using property links. Each goal can have
 
 Example hierarchy:
 ```
-Hobbies (root)
-├── Photography
-│   ├── Learn Portrait Lighting
-│   └── Build Photo Portfolio
-└── Music
-    ├── Learn Guitar
-    └── Record First Song
+Develop Creative Hobbies (root)
+├── Master Photography
+│   ├── Master Portrait Lighting
+│   └── Complete Photo Portfolio
+└── Become a Musician
+    ├── Play Guitar Proficiently
+    └── Release Original Song
 ```
 
 ### Setting Up Goals
@@ -97,39 +97,39 @@ Hobbies (root)
 priority: 1
 expectedAcquireDate: "[[2025-12-31]]"
 ---
-# Hobbies
+# Develop Creative Hobbies
 ```
 
 **Child Goal** (has parent):
 ```yaml
 ---
-goal: "[[Hobbies]]"
+goal: "[[Develop Creative Hobbies]]"
 priority: 2
 expectedAcquireDate: "[[2025-06-30]]"
 ---
-# Photography
+# Master Photography
 ```
 
 **Leaf Goal** (no children, has progress):
 ```yaml
 ---
-goal: "[[Photography]]"
+goal: "[[Master Photography]]"
 priority: 1
 progress: 60
 expectedAcquireDate: "[[2025-04-15]]"
 ---
-# Learn Portrait Lighting
+# Master Portrait Lighting
 ```
 
 **Blocked Goal**:
 ```yaml
 ---
-goal: "[[Music]]"
+goal: "[[Become a Musician]]"
 priority: 2
 progress: 10
 blocked: true
 ---
-# Record First Song
+# Release Original Song
 ```
 
 ## Computed Properties
@@ -178,7 +178,7 @@ The plugin automatically adds computed properties (prefixed with `_` by default)
 **Leaf goal** (after plugin processes):
 ```yaml
 ---
-_rootGoal: "[[Hobbies]]"
+_rootGoal: "[[Develop Creative Hobbies]]"
 _rootGoalPriority: 1
 _chainPriority: 4
 _depth: 2
@@ -187,7 +187,7 @@ _daysRemaining: 76
 _isOverdue: false
 _goalYear: 2025
 _goalQuarter: Q2
-goal: "[[Photography]]"
+goal: "[[Master Photography]]"
 priority: 1
 progress: 60
 expectedAcquireDate: "[[2025-04-15]]"
@@ -197,7 +197,7 @@ expectedAcquireDate: "[[2025-04-15]]"
 **Parent goal with children**:
 ```yaml
 ---
-_rootGoal: "[[Hobbies]]"
+_rootGoal: "[[Develop Creative Hobbies]]"
 _rootGoalPriority: 1
 _chainPriority: 3
 _depth: 1
@@ -207,15 +207,15 @@ _isOverdue: false
 _hasBlockedChildren: false
 _childCount: 2
 _children:
-  - "[[Learn Portrait Lighting]]"
-  - "[[Build Photo Portfolio]]"
+  - "[[Master Portrait Lighting]]"
+  - "[[Complete Photo Portfolio]]"
 _totalDescendants: 2
 _leafCount: 2
 _calculatedProgress: 45
 _calculatedExpectedAcquireDate: "[[2025-06-30]]"
 _goalYear: 2025
 _goalQuarter: Q2
-goal: "[[Hobbies]]"
+goal: "[[Develop Creative Hobbies]]"
 priority: 2
 ---
 ```
@@ -230,14 +230,14 @@ Chain priority is the **sum** of all priorities from root to the current goal. L
 
 **Example**:
 ```
-Hobbies (priority: 1)
-└── Photography (priority: 2)
-    └── Learn Portrait Lighting (priority: 1)
+Develop Creative Hobbies (priority: 1)
+└── Master Photography (priority: 2)
+    └── Master Portrait Lighting (priority: 1)
 ```
 
-- Hobbies: No chain priority (is root)
-- Photography: `_chainPriority` = 1 + 2 = **3**
-- Learn Portrait Lighting: `_chainPriority` = 1 + 2 + 1 = **4**
+- Develop Creative Hobbies: No chain priority (is root)
+- Master Photography: `_chainPriority` = 1 + 2 = **3**
+- Master Portrait Lighting: `_chainPriority` = 1 + 2 + 1 = **4**
 
 ### Weighted Progress
 
@@ -245,14 +245,14 @@ Progress is weighted by priority - higher priority children (lower numbers) cont
 
 **Example**:
 ```
-Photography
-├── Learn Portrait Lighting (priority: 1, progress: 80)
-└── Build Photo Portfolio (priority: 3, progress: 20)
+Master Photography
+├── Master Portrait Lighting (priority: 1, progress: 80)
+└── Complete Photo Portfolio (priority: 3, progress: 20)
 ```
 
 Weights are calculated as `maxPriority - priority + 1`:
-- Learn Portrait Lighting: weight = 3 - 1 + 1 = **3**
-- Build Photo Portfolio: weight = 3 - 3 + 1 = **1**
+- Master Portrait Lighting: weight = 3 - 1 + 1 = **3**
+- Complete Photo Portfolio: weight = 3 - 3 + 1 = **1**
 
 Weighted progress = (80×3 + 20×1) / (3+1) = 260/4 = **65%**
 
@@ -366,7 +366,7 @@ table
   _calculatedProgress as "Progress",
   _leafCount as "Tasks"
 from "Goals"
-where _rootGoal = "[[Hobbies]]"
+where _rootGoal = "[[Develop Creative Hobbies]]"
 sort _depth asc, _chainPriority asc
 ```
 

@@ -38,10 +38,10 @@ Command to generate Mermaid flowchart of goal hierarchy.
 
 ```mermaid
 flowchart TD
-    A[Hobbies] --> B[Photography]
-    A --> C[Music]
-    B --> D[Learn Portrait Lighting]
-    B --> E[Build Photo Portfolio]
+    A[Develop Creative Hobbies] --> B[Master Photography]
+    A --> C[Become a Musician]
+    B --> D[Master Portrait Lighting]
+    B --> E[Complete Photo Portfolio]
 ```
 
 - Export to clipboard or new note
