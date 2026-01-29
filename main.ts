@@ -6,6 +6,7 @@ interface RecursiveGoalsSettings {
 	progressProperty: string;
 	priorityProperty: string;
 	expectedAcquireDateProperty: string;
+	blockedProperty: string;
 }
 
 const DEFAULT_SETTINGS: RecursiveGoalsSettings = {
@@ -14,6 +15,7 @@ const DEFAULT_SETTINGS: RecursiveGoalsSettings = {
 	progressProperty: "progress",
 	priorityProperty: "priority",
 	expectedAcquireDateProperty: "expectedAcquireDate",
+	blockedProperty: "blocked",
 };
 
 const COMPUTED_PROPERTY_ORDER = [
@@ -25,6 +27,7 @@ const COMPUTED_PROPERTY_ORDER = [
 	"_daysRemaining",
 	"_isOverdue",
 	"_completedDate",
+	"_hasBlockedChildren",
 	"_childCount",
 	"_children",
 	"_totalDescendants",
@@ -42,6 +45,7 @@ interface GoalNode {
 	progress: number;
 	priority: number;
 	expectedAcquireDate: string | null;
+	blocked: boolean;
 	parentPath: string | null;
 	children: string[];
 }
@@ -144,6 +148,12 @@ export default class RecursiveGoalsPlugin extends Plugin {
 		return linkPath || (typeof value === "string" ? value : null);
 	}
 
+	isBlocked(file: TFile): boolean {
+		const properties = this.getProperties(file);
+		if (!properties) return false;
+		return properties[this.settings.blockedProperty] === true;
+	}
+
 	buildGoalGraph(): Map<string, GoalNode> {
 		const graph = new Map<string, GoalNode>();
 		const goalFiles = this.getGoalFiles();
@@ -157,6 +167,7 @@ export default class RecursiveGoalsPlugin extends Plugin {
 				progress: this.getProgress(file),
 				priority: this.getPriority(file),
 				expectedAcquireDate: this.getExpectedAcquireDate(file),
+				blocked: this.isBlocked(file),
 				parentPath: parentGoal?.path || null,
 				children: [],
 			});
@@ -372,6 +383,21 @@ export default class RecursiveGoalsPlugin extends Plugin {
 		return count;
 	}
 
+	hasBlockedDescendants(graph: Map<string, GoalNode>, path: string, visited: Set<string> = new Set()): boolean {
+		if (visited.has(path)) return false;
+		visited.add(path);
+
+		const node = graph.get(path);
+		if (!node) return false;
+
+		for (const childPath of node.children) {
+			const child = graph.get(childPath);
+			if (child?.blocked) return true;
+			if (this.hasBlockedDescendants(graph, childPath, visited)) return true;
+		}
+		return false;
+	}
+
 	reorderProperties(properties: Record<string, any>): void {
 		const computed: Record<string, any> = {};
 		const regular: Record<string, any> = {};
@@ -418,6 +444,7 @@ export default class RecursiveGoalsPlugin extends Plugin {
 			if (hasChildren) {
 				properties["_totalDescendants"] = this.countTotalDescendants(graph, path);
 				properties["_leafCount"] = this.countLeafGoals(graph, path);
+				properties["_hasBlockedChildren"] = this.hasBlockedDescendants(graph, path);
 				properties["_childCount"] = node.children.length;
 				properties["_children"] = this.getChildrenLinks(graph, path);
 
@@ -558,6 +585,18 @@ class RecursiveGoalsSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.expectedAcquireDateProperty)
 					.onChange(async (value) => {
 						this.plugin.settings.expectedAcquireDateProperty = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
+			.setName("Blocked property")
+			.setDesc("Property indicating goal is blocked (boolean)")
+			.addText((text) =>
+				text
+					.setValue(this.plugin.settings.blockedProperty)
+					.onChange(async (value) => {
+						this.plugin.settings.blockedProperty = value;
 						await this.plugin.saveSettings();
 					})
 			);
