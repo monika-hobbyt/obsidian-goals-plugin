@@ -21,6 +21,9 @@ const COMPUTED_PROPERTY_ORDER = [
 	"_rootGoalPriority",
 	"_chainPriority",
 	"_status",
+	"_daysRemaining",
+	"_isOverdue",
+	"_completedDate",
 	"_childCount",
 	"_children",
 	"_calculatedProgress",
@@ -292,6 +295,34 @@ export default class RecursiveGoalsPlugin extends Plugin {
 		return "not-started";
 	}
 
+	calculateDaysRemaining(dateStr: string | null): number | null {
+		if (!dateStr) return null;
+		const match = dateStr.match(/(\d{4}-\d{2}-\d{2})/);
+		if (!match) return null;
+
+		const targetDate = new Date(match[1]);
+		const today = new Date();
+		today.setHours(0, 0, 0, 0);
+		targetDate.setHours(0, 0, 0, 0);
+
+		const diffTime = targetDate.getTime() - today.getTime();
+		return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+	}
+
+	isOverdue(progress: number, dateStr: string | null): boolean {
+		if (progress >= 100) return false;
+		const daysRemaining = this.calculateDaysRemaining(dateStr);
+		return daysRemaining !== null && daysRemaining < 0;
+	}
+
+	getTodayDateString(): string {
+		const today = new Date();
+		const year = today.getFullYear();
+		const month = String(today.getMonth() + 1).padStart(2, "0");
+		const day = String(today.getDate()).padStart(2, "0");
+		return `${year}-${month}-${day}`;
+	}
+
 	reorderProperties(properties: Record<string, any>): void {
 		const computed: Record<string, any> = {};
 		const regular: Record<string, any> = {};
@@ -352,6 +383,14 @@ export default class RecursiveGoalsPlugin extends Plugin {
 				}
 
 				properties["_status"] = this.calculateStatus(calculatedProgress, latestDate);
+				properties["_daysRemaining"] = this.calculateDaysRemaining(latestDate);
+				properties["_isOverdue"] = this.isOverdue(calculatedProgress, latestDate);
+
+				if (calculatedProgress >= 100 && !properties["_completedDate"]) {
+					properties["_completedDate"] = `[[${this.getTodayDateString()}]]`;
+				} else if (calculatedProgress < 100) {
+					delete properties["_completedDate"];
+				}
 			} else {
 				const date = node.expectedAcquireDate;
 				if (date) {
@@ -360,6 +399,14 @@ export default class RecursiveGoalsPlugin extends Plugin {
 				}
 
 				properties["_status"] = this.calculateStatus(node.progress, date);
+				properties["_daysRemaining"] = this.calculateDaysRemaining(date);
+				properties["_isOverdue"] = this.isOverdue(node.progress, date);
+
+				if (node.progress >= 100 && !properties["_completedDate"]) {
+					properties["_completedDate"] = `[[${this.getTodayDateString()}]]`;
+				} else if (node.progress < 100) {
+					delete properties["_completedDate"];
+				}
 			}
 
 			this.reorderProperties(properties);
