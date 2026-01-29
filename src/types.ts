@@ -1,5 +1,17 @@
 import { TFile } from "obsidian";
 
+export type ProgressCalculationMethod = "weighted" | "simple";
+
+export interface ComputedPropertyToggles {
+	rootGoal: boolean;
+	chainPriority: boolean;
+	depth: boolean;
+	status: boolean;
+	timeMetrics: boolean;
+	hierarchyMetrics: boolean;
+	blockedTracking: boolean;
+}
+
 export interface RecursiveGoalsSettings {
 	goalsFolder: string;
 	goalProperty: string;
@@ -7,6 +19,9 @@ export interface RecursiveGoalsSettings {
 	priorityProperty: string;
 	expectedAcquireDateProperty: string;
 	blockedProperty: string;
+	computedPropertyPrefix: string;
+	progressCalculationMethod: ProgressCalculationMethod;
+	enabledProperties: ComputedPropertyToggles;
 }
 
 export const DEFAULT_SETTINGS: RecursiveGoalsSettings = {
@@ -16,6 +31,17 @@ export const DEFAULT_SETTINGS: RecursiveGoalsSettings = {
 	priorityProperty: "priority",
 	expectedAcquireDateProperty: "expectedAcquireDate",
 	blockedProperty: "blocked",
+	computedPropertyPrefix: "_",
+	progressCalculationMethod: "weighted",
+	enabledProperties: {
+		rootGoal: true,
+		chainPriority: true,
+		depth: true,
+		status: true,
+		timeMetrics: true,
+		hierarchyMetrics: true,
+		blockedTracking: true,
+	},
 };
 
 export const COMPUTED_PROPERTY_ORDER = [

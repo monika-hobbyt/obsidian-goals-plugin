@@ -1,8 +1,9 @@
-import { GoalNode } from "./types";
+import { GoalNode, ProgressCalculationMethod } from "./types";
 
 export function calculateAccumulatedProgress(
 	graph: Map<string, GoalNode>,
 	path: string,
+	method: ProgressCalculationMethod = "weighted",
 	visited: Set<string> = new Set()
 ): number {
 	if (visited.has(path)) return 0;
@@ -20,12 +21,17 @@ export function calculateAccumulatedProgress(
 		const child = graph.get(childPath);
 		if (!child) continue;
 		childData.push({
-			progress: calculateAccumulatedProgress(graph, childPath, visited),
+			progress: calculateAccumulatedProgress(graph, childPath, method, visited),
 			priority: child.priority || 1,
 		});
 	}
 
 	if (childData.length === 0) return 0;
+
+	if (method === "simple") {
+		const total = childData.reduce((sum, c) => sum + c.progress, 0);
+		return total / childData.length;
+	}
 
 	const maxPriority = Math.max(...childData.map((c) => c.priority));
 	let weightedSum = 0;

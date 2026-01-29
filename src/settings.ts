@@ -13,6 +13,8 @@ export class RecursiveGoalsSettingTab extends PluginSettingTab {
 		const { containerEl } = this;
 		containerEl.empty();
 
+		containerEl.createEl("h3", { text: "Property Names" });
+
 		new Setting(containerEl)
 			.setName("Goals folder")
 			.setDesc("Folder path where goals are stored")
@@ -73,6 +75,120 @@ export class RecursiveGoalsSettingTab extends PluginSettingTab {
 					this.plugin.settings.blockedProperty = value;
 					await this.plugin.saveSettings();
 				})
+			);
+
+		containerEl.createEl("h3", { text: "Calculation Options" });
+
+		new Setting(containerEl)
+			.setName("Computed property prefix")
+			.setDesc("Prefix for computed properties (default: _)")
+			.addText((text) =>
+				text
+					.setValue(this.plugin.settings.computedPropertyPrefix)
+					.onChange(async (value) => {
+						this.plugin.settings.computedPropertyPrefix = value || "_";
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
+			.setName("Progress calculation method")
+			.setDesc("How to calculate parent progress from children")
+			.addDropdown((dropdown) =>
+				dropdown
+					.addOption("weighted", "Weighted by priority")
+					.addOption("simple", "Simple average")
+					.setValue(this.plugin.settings.progressCalculationMethod)
+					.onChange(async (value: "weighted" | "simple") => {
+						this.plugin.settings.progressCalculationMethod = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		containerEl.createEl("h3", { text: "Enabled Properties" });
+
+		new Setting(containerEl)
+			.setName("Root goal tracking")
+			.setDesc("Add _rootGoal and _rootGoalPriority")
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.enabledProperties.rootGoal)
+					.onChange(async (value) => {
+						this.plugin.settings.enabledProperties.rootGoal = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
+			.setName("Chain priority")
+			.setDesc("Add _chainPriority (sum of priorities from root)")
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.enabledProperties.chainPriority)
+					.onChange(async (value) => {
+						this.plugin.settings.enabledProperties.chainPriority = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
+			.setName("Depth tracking")
+			.setDesc("Add _depth (levels from root)")
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.enabledProperties.depth)
+					.onChange(async (value) => {
+						this.plugin.settings.enabledProperties.depth = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
+			.setName("Status tracking")
+			.setDesc("Add _status (not-started, in-progress, completed, overdue)")
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.enabledProperties.status)
+					.onChange(async (value) => {
+						this.plugin.settings.enabledProperties.status = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
+			.setName("Time metrics")
+			.setDesc("Add _daysRemaining, _isOverdue, _completedDate")
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.enabledProperties.timeMetrics)
+					.onChange(async (value) => {
+						this.plugin.settings.enabledProperties.timeMetrics = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
+			.setName("Hierarchy metrics")
+			.setDesc("Add _childCount, _children, _totalDescendants, _leafCount")
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.enabledProperties.hierarchyMetrics)
+					.onChange(async (value) => {
+						this.plugin.settings.enabledProperties.hierarchyMetrics = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
+			.setName("Blocked tracking")
+			.setDesc("Add _hasBlockedChildren")
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.enabledProperties.blockedTracking)
+					.onChange(async (value) => {
+						this.plugin.settings.enabledProperties.blockedTracking = value;
+						await this.plugin.saveSettings();
+					})
 			);
 	}
 }
