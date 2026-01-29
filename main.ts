@@ -4,12 +4,16 @@ interface RecursiveGoalsSettings {
 	goalsFolder: string;
 	goalProperty: string;
 	progressProperty: string;
+	priorityProperty: string;
+	expectedAcquireDateProperty: string;
 }
 
 const DEFAULT_SETTINGS: RecursiveGoalsSettings = {
 	goalsFolder: "Goals",
 	goalProperty: "goal",
 	progressProperty: "progress",
+	priorityProperty: "priority",
+	expectedAcquireDateProperty: "expectedAcquireDate",
 };
 
 interface GoalNode {
@@ -17,6 +21,8 @@ interface GoalNode {
 	path: string;
 	name: string;
 	progress: number;
+	priority: number;
+	expectedAcquireDate: string | null;
 	parentPath: string | null;
 	children: string[];
 }
@@ -78,6 +84,21 @@ export default class RecursiveGoalsPlugin extends Plugin {
 		return this.app.metadataCache.getFirstLinkpathDest(linkPath, file.path);
 	}
 
+	getPriority(file: TFile): number {
+		const properties = this.getProperties(file);
+		if (!properties) return 0;
+		const value = Number(properties[this.settings.priorityProperty]);
+		return isNaN(value) ? 0 : value;
+	}
+
+	getExpectedAcquireDate(file: TFile): string | null {
+		const properties = this.getProperties(file);
+		if (!properties) return null;
+		const value = properties[this.settings.expectedAcquireDateProperty];
+		const linkPath = this.extractLinkPath(value);
+		return linkPath || (typeof value === "string" ? value : null);
+	}
+
 	buildGoalGraph(): Map<string, GoalNode> {
 		const graph = new Map<string, GoalNode>();
 		const goalFiles = this.getGoalFiles();
@@ -89,6 +110,8 @@ export default class RecursiveGoalsPlugin extends Plugin {
 				path: file.path,
 				name: file.basename,
 				progress: this.getProgress(file),
+				priority: this.getPriority(file),
+				expectedAcquireDate: this.getExpectedAcquireDate(file),
 				parentPath: parentGoal?.path || null,
 				children: [],
 			});
@@ -180,6 +203,30 @@ class RecursiveGoalsSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.progressProperty)
 					.onChange(async (value) => {
 						this.plugin.settings.progressProperty = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
+			.setName("Priority property")
+			.setDesc("Property storing priority value")
+			.addText((text) =>
+				text
+					.setValue(this.plugin.settings.priorityProperty)
+					.onChange(async (value) => {
+						this.plugin.settings.priorityProperty = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
+			.setName("Expected acquire date property")
+			.setDesc("Property storing expected completion date")
+			.addText((text) =>
+				text
+					.setValue(this.plugin.settings.expectedAcquireDateProperty)
+					.onChange(async (value) => {
+						this.plugin.settings.expectedAcquireDateProperty = value;
 						await this.plugin.saveSettings();
 					})
 			);
