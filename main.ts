@@ -19,6 +19,7 @@ const DEFAULT_SETTINGS: RecursiveGoalsSettings = {
 const COMPUTED_PROPERTY_ORDER = [
 	"_rootGoal",
 	"_rootGoalPriority",
+	"_chainPriority",
 	"_childCount",
 	"_children",
 	"_calculatedProgress",
@@ -195,6 +196,21 @@ export default class RecursiveGoalsPlugin extends Plugin {
 		return this.findRootGoal(graph, node.parentPath, visited);
 	}
 
+	calculateChainPriority(graph: Map<string, GoalNode>, path: string, visited: Set<string> = new Set()): number {
+		if (visited.has(path)) return 0;
+		visited.add(path);
+
+		const node = graph.get(path);
+		if (!node) return 0;
+
+		if (!node.parentPath || !graph.has(node.parentPath)) {
+			return node.priority;
+		}
+
+		const parentPriority = this.calculateChainPriority(graph, node.parentPath, visited);
+		return parentPriority * node.priority;
+	}
+
 	findLatestDate(graph: Map<string, GoalNode>, path: string, visited: Set<string> = new Set()): string | null {
 		if (visited.has(path)) return null;
 		visited.add(path);
@@ -283,6 +299,10 @@ export default class RecursiveGoalsPlugin extends Plugin {
 			if (rootGoal) {
 				properties["_rootGoal"] = `[[${rootGoal.name}]]`;
 				properties["_rootGoalPriority"] = rootGoal.priority;
+			}
+
+			if (node.parentPath) {
+				properties["_chainPriority"] = this.calculateChainPriority(graph, path);
 			}
 
 			if (hasChildren) {
