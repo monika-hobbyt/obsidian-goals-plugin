@@ -120,6 +120,20 @@ export default class RecursiveGoalsPlugin extends Plugin {
 		}
 		return total / node.children.length;
 	}
+
+	findRootGoal(graph: Map<string, GoalNode>, path: string, visited: Set<string> = new Set()): GoalNode | null {
+		if (visited.has(path)) return null;
+		visited.add(path);
+
+		const node = graph.get(path);
+		if (!node) return null;
+
+		if (!node.parentPath || !graph.has(node.parentPath)) {
+			return node;
+		}
+
+		return this.findRootGoal(graph, node.parentPath, visited);
+	}
 }
 
 class RecursiveGoalsSettingTab extends PluginSettingTab {
