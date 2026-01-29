@@ -1,9 +1,9 @@
-import { Plugin, TFile } from "obsidian";
+import { Notice, Plugin, TFile } from "obsidian";
 import { RecursiveGoalsSettings, DEFAULT_SETTINGS, GoalNode } from "./types";
 import { RecursiveGoalsSettingTab } from "./settings";
 import { buildGoalGraph, isGoalFile } from "./graph";
 import { updateGoalFile } from "./properties";
-import { findRootGoal } from "./calculations";
+import { validateGoalGraph, formatIssuesForNotice } from "./validation";
 
 export default class RecursiveGoalsPlugin extends Plugin {
 	settings: RecursiveGoalsSettings;
@@ -25,6 +25,14 @@ export default class RecursiveGoalsPlugin extends Plugin {
 			name: "Recalculate all goals",
 			callback: () => {
 				this.processAllGoals();
+			},
+		});
+
+		this.addCommand({
+			id: "validate-goals",
+			name: "Validate goal hierarchy",
+			callback: () => {
+				this.validateGoals();
 			},
 		});
 
@@ -65,6 +73,13 @@ export default class RecursiveGoalsPlugin extends Plugin {
 		this.pendingUpdates.clear();
 	}
 
+	validateGoals(): void {
+		const graph = buildGoalGraph(this.app, this.settings);
+		const issues = validateGoalGraph(graph, this.settings);
+		const message = formatIssuesForNotice(issues);
+		new Notice(message, issues.length > 0 ? 10000 : 3000);
+	}
+
 	onunload() {}
 
 	async loadSettings() {
@@ -91,6 +106,17 @@ export default class RecursiveGoalsPlugin extends Plugin {
 		try {
 			const graph = buildGoalGraph(this.app, this.settings);
 			this.cachedGraph = graph;
+
+			const issues = validateGoalGraph(graph, this.settings);
+			const criticalIssues = issues.filter(
+				(i) => i.type === "orphaned" || i.type === "circular"
+			);
+			if (criticalIssues.length > 0) {
+				new Notice(
+					`Goal hierarchy issues detected: ${criticalIssues.length} orphaned/circular reference(s). Run "Validate goal hierarchy" for details.`,
+					5000
+				);
+			}
 
 			const pathsToUpdate = this.getAffectedPaths(graph);
 			this.pendingUpdates.clear();
