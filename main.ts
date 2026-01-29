@@ -47,6 +47,18 @@ export default class RecursiveGoalsPlugin extends Plugin {
 		await this.loadSettings();
 		this.addSettingTab(new RecursiveGoalsSettingTab(this.app, this));
 
+		this.addRibbonIcon("target", "Recalculate goals", () => {
+			this.processAllGoals();
+		});
+
+		this.addCommand({
+			id: "recalculate-goals",
+			name: "Recalculate all goals",
+			callback: () => {
+				this.processAllGoals();
+			},
+		});
+
 		this.app.workspace.onLayoutReady(() => {
 			this.processAllGoals();
 		});
