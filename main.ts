@@ -201,6 +201,15 @@ export default class RecursiveGoalsPlugin extends Plugin {
 		const match = dateStr.match(/(\d{4}-\d{2}-\d{2})/);
 		return match ? `[[${match[1]}]]` : null;
 	}
+
+	getChildrenLinks(graph: Map<string, GoalNode>, path: string): string[] {
+		const node = graph.get(path);
+		if (!node) return [];
+		return node.children.map((childPath) => {
+			const child = graph.get(childPath);
+			return child ? `[[${child.name}]]` : "";
+		}).filter((link) => link !== "");
+	}
 }
 
 class RecursiveGoalsSettingTab extends PluginSettingTab {
