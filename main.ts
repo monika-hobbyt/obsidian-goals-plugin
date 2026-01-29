@@ -175,11 +175,21 @@ export default class RecursiveGoalsPlugin extends Plugin {
 			return node.progress;
 		}
 
-		let total = 0;
+		let weightedSum = 0;
+		let totalPriority = 0;
+
 		for (const childPath of node.children) {
-			total += this.calculateAccumulatedProgress(graph, childPath, visited);
+			const child = graph.get(childPath);
+			if (!child) continue;
+
+			const childProgress = this.calculateAccumulatedProgress(graph, childPath, visited);
+			const priority = child.priority || 1;
+
+			weightedSum += childProgress * priority;
+			totalPriority += priority;
 		}
-		return total / node.children.length;
+
+		return totalPriority > 0 ? weightedSum / totalPriority : 0;
 	}
 
 	findRootGoal(graph: Map<string, GoalNode>, path: string, visited: Set<string> = new Set()): GoalNode | null {
