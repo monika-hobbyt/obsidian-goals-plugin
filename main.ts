@@ -1,4 +1,4 @@
-import { App, Plugin, PluginSettingTab, Setting } from "obsidian";
+import { App, Plugin, PluginSettingTab, Setting, TFile } from "obsidian";
 
 interface RecursiveGoalsSettings {
 	goalsFolder: string;
@@ -29,6 +29,19 @@ export default class RecursiveGoalsPlugin extends Plugin {
 	async saveSettings() {
 		await this.saveData(this.settings);
 	}
+
+	isGoalFile(file: TFile): boolean {
+		return file.extension === "md" && file.path.startsWith(this.settings.goalsFolder);
+	}
+
+	getGoalFiles(): TFile[] {
+		return this.app.vault.getMarkdownFiles().filter((file) => this.isGoalFile(file));
+	}
+
+	getProperties(file: TFile): Record<string, any> | null {
+		const cache = this.app.metadataCache.getFileCache(file);
+		return cache?.frontmatter || null;
+	}
 }
 
 class RecursiveGoalsSettingTab extends PluginSettingTab {
@@ -57,7 +70,7 @@ class RecursiveGoalsSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Goal property")
-			.setDesc("Frontmatter property linking to parent goal")
+			.setDesc("Property linking to parent goal")
 			.addText((text) =>
 				text
 					.setValue(this.plugin.settings.goalProperty)
@@ -69,7 +82,7 @@ class RecursiveGoalsSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Progress property")
-			.setDesc("Frontmatter property storing progress value")
+			.setDesc("Property storing progress value")
 			.addText((text) =>
 				text
 					.setValue(this.plugin.settings.progressProperty)
