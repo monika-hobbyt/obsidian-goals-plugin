@@ -29,6 +29,8 @@ interface GoalNode {
 
 export default class RecursiveGoalsPlugin extends Plugin {
 	settings: RecursiveGoalsSettings;
+	private updateTimeout: ReturnType<typeof setTimeout> | null = null;
+	private isProcessing = false;
 
 	async onload() {
 		await this.loadSettings();
@@ -41,7 +43,7 @@ export default class RecursiveGoalsPlugin extends Plugin {
 		this.registerEvent(
 			this.app.metadataCache.on("changed", (file) => {
 				if (file instanceof TFile && this.isGoalFile(file)) {
-					this.processAllGoals();
+					this.scheduleProcessing();
 				}
 			})
 		);
@@ -257,10 +259,26 @@ export default class RecursiveGoalsPlugin extends Plugin {
 		});
 	}
 
+	scheduleProcessing(): void {
+		if (this.updateTimeout) {
+			clearTimeout(this.updateTimeout);
+		}
+		this.updateTimeout = setTimeout(() => {
+			this.processAllGoals();
+		}, 500);
+	}
+
 	async processAllGoals(): Promise<void> {
-		const graph = this.buildGoalGraph();
-		for (const path of graph.keys()) {
-			await this.updateGoalFile(graph, path);
+		if (this.isProcessing) return;
+		this.isProcessing = true;
+
+		try {
+			const graph = this.buildGoalGraph();
+			for (const path of graph.keys()) {
+				await this.updateGoalFile(graph, path);
+			}
+		} finally {
+			this.isProcessing = false;
 		}
 	}
 }
