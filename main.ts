@@ -278,6 +278,10 @@ export default class RecursiveGoalsPlugin extends Plugin {
 				properties["_children"] = this.getChildrenLinks(graph, path);
 				properties["_calculatedProgress"] = Math.round(this.calculateAccumulatedProgress(graph, path));
 
+				if (properties[this.settings.progressProperty] !== undefined) {
+					delete properties[this.settings.progressProperty];
+				}
+
 				const latestDate = this.findLatestDate(graph, path);
 				if (latestDate) {
 					properties["_calculatedExpectedAcquireDate"] = this.formatDateAsLink(latestDate);
