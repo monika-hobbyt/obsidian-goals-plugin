@@ -16,6 +16,17 @@ const DEFAULT_SETTINGS: RecursiveGoalsSettings = {
 	expectedAcquireDateProperty: "expectedAcquireDate",
 };
 
+const COMPUTED_PROPERTY_ORDER = [
+	"_rootGoal",
+	"_rootGoalPriority",
+	"_childCount",
+	"_children",
+	"_calculatedProgress",
+	"_calculatedExpectedAcquireDate",
+	"_goalYear",
+	"_goalQuarter",
+];
+
 interface GoalNode {
 	file: TFile;
 	path: string;
@@ -225,6 +236,30 @@ export default class RecursiveGoalsPlugin extends Plugin {
 		}).filter((link) => link !== "");
 	}
 
+	reorderProperties(properties: Record<string, any>): void {
+		const computed: Record<string, any> = {};
+		const regular: Record<string, any> = {};
+
+		for (const key of Object.keys(properties)) {
+			if (key.startsWith("_")) {
+				computed[key] = properties[key];
+			} else {
+				regular[key] = properties[key];
+			}
+			delete properties[key];
+		}
+
+		for (const key of COMPUTED_PROPERTY_ORDER) {
+			if (computed[key] !== undefined) {
+				properties[key] = computed[key];
+			}
+		}
+
+		for (const key of Object.keys(regular)) {
+			properties[key] = regular[key];
+		}
+	}
+
 	async updateGoalFile(graph: Map<string, GoalNode>, path: string): Promise<void> {
 		const node = graph.get(path);
 		if (!node) return;
@@ -232,30 +267,32 @@ export default class RecursiveGoalsPlugin extends Plugin {
 		const rootGoal = this.findRootGoal(graph, path);
 		const hasChildren = node.children.length > 0;
 
-		await this.app.fileManager.processFrontMatter(node.file, (fm) => {
+		await this.app.fileManager.processFrontMatter(node.file, (properties) => {
 			if (rootGoal) {
-				fm["_rootGoal"] = `[[${rootGoal.name}]]`;
-				fm["_rootGoalPriority"] = rootGoal.priority;
+				properties["_rootGoal"] = `[[${rootGoal.name}]]`;
+				properties["_rootGoalPriority"] = rootGoal.priority;
 			}
 
 			if (hasChildren) {
-				fm["_childCount"] = node.children.length;
-				fm["_children"] = this.getChildrenLinks(graph, path);
-				fm["_calculatedProgress"] = Math.round(this.calculateAccumulatedProgress(graph, path));
+				properties["_childCount"] = node.children.length;
+				properties["_children"] = this.getChildrenLinks(graph, path);
+				properties["_calculatedProgress"] = Math.round(this.calculateAccumulatedProgress(graph, path));
 
 				const latestDate = this.findLatestDate(graph, path);
 				if (latestDate) {
-					fm["_calculatedExpectedAcquireDate"] = this.formatDateAsLink(latestDate);
-					fm["_goalYear"] = this.getYearFromDate(latestDate);
-					fm["_goalQuarter"] = this.getQuarterFromDate(latestDate);
+					properties["_calculatedExpectedAcquireDate"] = this.formatDateAsLink(latestDate);
+					properties["_goalYear"] = this.getYearFromDate(latestDate);
+					properties["_goalQuarter"] = this.getQuarterFromDate(latestDate);
 				}
 			} else {
 				const date = node.expectedAcquireDate;
 				if (date) {
-					fm["_goalYear"] = this.getYearFromDate(date);
-					fm["_goalQuarter"] = this.getQuarterFromDate(date);
+					properties["_goalYear"] = this.getYearFromDate(date);
+					properties["_goalQuarter"] = this.getQuarterFromDate(date);
 				}
 			}
+
+			this.reorderProperties(properties);
 		});
 	}
 
