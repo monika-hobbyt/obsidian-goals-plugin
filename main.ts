@@ -102,6 +102,24 @@ export default class RecursiveGoalsPlugin extends Plugin {
 
 		return graph;
 	}
+
+	calculateAccumulatedProgress(graph: Map<string, GoalNode>, path: string, visited: Set<string> = new Set()): number {
+		if (visited.has(path)) return 0;
+		visited.add(path);
+
+		const node = graph.get(path);
+		if (!node) return 0;
+
+		if (node.children.length === 0) {
+			return node.progress;
+		}
+
+		let total = 0;
+		for (const childPath of node.children) {
+			total += this.calculateAccumulatedProgress(graph, childPath, visited);
+		}
+		return total / node.children.length;
+	}
 }
 
 class RecursiveGoalsSettingTab extends PluginSettingTab {
