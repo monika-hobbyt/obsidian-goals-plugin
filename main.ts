@@ -12,6 +12,15 @@ const DEFAULT_SETTINGS: RecursiveGoalsSettings = {
 	progressProperty: "progress",
 };
 
+interface GoalNode {
+	file: TFile;
+	path: string;
+	name: string;
+	progress: number;
+	parentPath: string | null;
+	children: string[];
+}
+
 export default class RecursiveGoalsPlugin extends Plugin {
 	settings: RecursiveGoalsSettings;
 
@@ -67,6 +76,31 @@ export default class RecursiveGoalsPlugin extends Plugin {
 		const linkPath = this.extractLinkPath(properties[this.settings.goalProperty]);
 		if (!linkPath) return null;
 		return this.app.metadataCache.getFirstLinkpathDest(linkPath, file.path);
+	}
+
+	buildGoalGraph(): Map<string, GoalNode> {
+		const graph = new Map<string, GoalNode>();
+		const goalFiles = this.getGoalFiles();
+
+		for (const file of goalFiles) {
+			const parentGoal = this.getParentGoal(file);
+			graph.set(file.path, {
+				file,
+				path: file.path,
+				name: file.basename,
+				progress: this.getProgress(file),
+				parentPath: parentGoal?.path || null,
+				children: [],
+			});
+		}
+
+		for (const [path, node] of graph) {
+			if (node.parentPath && graph.has(node.parentPath)) {
+				graph.get(node.parentPath)!.children.push(path);
+			}
+		}
+
+		return graph;
 	}
 }
 
