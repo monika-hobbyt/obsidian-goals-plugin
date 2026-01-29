@@ -210,6 +210,40 @@ export default class RecursiveGoalsPlugin extends Plugin {
 			return child ? `[[${child.name}]]` : "";
 		}).filter((link) => link !== "");
 	}
+
+	async updateGoalFile(graph: Map<string, GoalNode>, path: string): Promise<void> {
+		const node = graph.get(path);
+		if (!node) return;
+
+		const rootGoal = this.findRootGoal(graph, path);
+		const hasChildren = node.children.length > 0;
+
+		await this.app.fileManager.processFrontMatter(node.file, (fm) => {
+			if (rootGoal) {
+				fm["_rootGoal"] = `[[${rootGoal.name}]]`;
+				fm["_rootGoalPriority"] = rootGoal.priority;
+			}
+
+			if (hasChildren) {
+				fm["_childCount"] = node.children.length;
+				fm["_children"] = this.getChildrenLinks(graph, path);
+				fm["_calculatedProgress"] = Math.round(this.calculateAccumulatedProgress(graph, path));
+
+				const latestDate = this.findLatestDate(graph, path);
+				if (latestDate) {
+					fm["_calculatedExpectedAcquireDate"] = this.formatDateAsLink(latestDate);
+					fm["_goalYear"] = this.getYearFromDate(latestDate);
+					fm["_goalQuarter"] = this.getQuarterFromDate(latestDate);
+				}
+			} else {
+				const date = node.expectedAcquireDate;
+				if (date) {
+					fm["_goalYear"] = this.getYearFromDate(date);
+					fm["_goalQuarter"] = this.getQuarterFromDate(date);
+				}
+			}
+		});
+	}
 }
 
 class RecursiveGoalsSettingTab extends PluginSettingTab {
