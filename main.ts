@@ -20,6 +20,7 @@ const COMPUTED_PROPERTY_ORDER = [
 	"_rootGoal",
 	"_rootGoalPriority",
 	"_chainPriority",
+	"_status",
 	"_childCount",
 	"_children",
 	"_calculatedProgress",
@@ -274,6 +275,23 @@ export default class RecursiveGoalsPlugin extends Plugin {
 		}).filter((link) => link !== "");
 	}
 
+	calculateStatus(progress: number, dateStr: string | null): string {
+		if (progress >= 100) return "completed";
+
+		if (dateStr) {
+			const match = dateStr.match(/(\d{4}-\d{2}-\d{2})/);
+			if (match) {
+				const targetDate = new Date(match[1]);
+				const today = new Date();
+				today.setHours(0, 0, 0, 0);
+				if (targetDate < today) return "overdue";
+			}
+		}
+
+		if (progress > 0) return "in-progress";
+		return "not-started";
+	}
+
 	reorderProperties(properties: Record<string, any>): void {
 		const computed: Record<string, any> = {};
 		const regular: Record<string, any> = {};
@@ -318,7 +336,9 @@ export default class RecursiveGoalsPlugin extends Plugin {
 			if (hasChildren) {
 				properties["_childCount"] = node.children.length;
 				properties["_children"] = this.getChildrenLinks(graph, path);
-				properties["_calculatedProgress"] = Math.round(this.calculateAccumulatedProgress(graph, path));
+
+				const calculatedProgress = Math.round(this.calculateAccumulatedProgress(graph, path));
+				properties["_calculatedProgress"] = calculatedProgress;
 
 				if (properties[this.settings.progressProperty] !== undefined) {
 					delete properties[this.settings.progressProperty];
@@ -330,12 +350,16 @@ export default class RecursiveGoalsPlugin extends Plugin {
 					properties["_goalYear"] = this.getYearFromDate(latestDate);
 					properties["_goalQuarter"] = this.getQuarterFromDate(latestDate);
 				}
+
+				properties["_status"] = this.calculateStatus(calculatedProgress, latestDate);
 			} else {
 				const date = node.expectedAcquireDate;
 				if (date) {
 					properties["_goalYear"] = this.getYearFromDate(date);
 					properties["_goalQuarter"] = this.getQuarterFromDate(date);
 				}
+
+				properties["_status"] = this.calculateStatus(node.progress, date);
 			}
 
 			this.reorderProperties(properties);
