@@ -42,6 +42,32 @@ export default class RecursiveGoalsPlugin extends Plugin {
 		const cache = this.app.metadataCache.getFileCache(file);
 		return cache?.frontmatter || null;
 	}
+
+	getProgress(file: TFile): number {
+		const properties = this.getProperties(file);
+		if (!properties) return 0;
+		const value = Number(properties[this.settings.progressProperty]);
+		return isNaN(value) ? 0 : value;
+	}
+
+	extractLinkPath(value: any): string | null {
+		if (!value) return null;
+		if (typeof value === "string") {
+			const match = value.match(/\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/);
+			if (match) return match[1];
+			return value;
+		}
+		if (typeof value === "object" && value.path) return value.path;
+		return null;
+	}
+
+	getParentGoal(file: TFile): TFile | null {
+		const properties = this.getProperties(file);
+		if (!properties) return null;
+		const linkPath = this.extractLinkPath(properties[this.settings.goalProperty]);
+		if (!linkPath) return null;
+		return this.app.metadataCache.getFirstLinkpathDest(linkPath, file.path);
+	}
 }
 
 class RecursiveGoalsSettingTab extends PluginSettingTab {
