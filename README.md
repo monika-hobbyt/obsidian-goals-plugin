@@ -4,14 +4,18 @@ Automatically calculates and maintains computed properties for hierarchical goal
 
 ## Features
 
-- **Recursive Progress Calculation**: Parent goals automatically show accumulated progress based on their children's progress (averaged)
+- **Weighted Progress Calculation**: Parent goals show accumulated progress weighted by child priorities (lower priority = more important = higher weight)
 - **Goal Hierarchy Tracking**: Automatically detects and links parent-child relationships between goals
+- **Status Tracking**: Automatic status computation (not-started, in-progress, completed, overdue)
+- **Time-Based Metrics**: Days remaining, overdue detection, and completion date tracking
+- **Hierarchy Metrics**: Depth tracking, total descendants count, and leaf goal count
+- **Blocked Goals Support**: Mark goals as blocked and see which parent goals have blocked children
 - **Root Goal Inheritance**: Every goal knows its root goal and inherits the root's priority
-- **Chain Priority Calculation**: Computes weighted priority by multiplying priorities down the chain from root to leaf
+- **Chain Priority Calculation**: Sum of priorities from root to leaf (lower = more important)
 - **Date Aggregation**: Parent goals automatically show the latest expected completion date from their children
 - **Year and Quarter Extraction**: Automatically extracts goal year and quarter (Q1-Q4) from dates
 - **Children Links**: Parent goals maintain a list of links to their direct children
-- **Property Ordering**: Computed properties are consistently ordered at the top of frontmatter
+- **Property Ordering**: Computed properties are consistently ordered at the top of the properties section
 - **Automatic Updates**: Recalculates on file changes with debouncing to prevent excessive updates
 - **Manual Recalculation**: Ribbon icon and command palette entry for manual triggering
 
@@ -38,16 +42,17 @@ Access settings via Settings → Recursive Goals.
 | Setting | Default | Description |
 |---------|---------|-------------|
 | Goals folder | `Goals` | Folder path where goal files are stored |
-| Goal property | `goal` | Frontmatter property that links to parent goal |
-| Progress property | `progress` | Frontmatter property storing progress (0-100) |
-| Priority property | `priority` | Frontmatter property storing priority value |
-| Expected acquire date property | `expectedAcquireDate` | Frontmatter property storing target completion date |
+| Goal property | `goal` | Property that links to parent goal |
+| Progress property | `progress` | Property storing progress (0-100) |
+| Priority property | `priority` | Property storing priority value (lower = more important) |
+| Expected acquire date property | `expectedAcquireDate` | Property storing target completion date |
+| Blocked property | `blocked` | Property indicating goal is blocked (boolean) |
 
 ## How It Works
 
 ### Goal Hierarchy
 
-Goals are organized in a tree structure using frontmatter links. Each goal can have:
+Goals are organized in a tree structure using property links. Each goal can have:
 - A **parent goal** (linked via the `goal` property)
 - Multiple **child goals** (goals that link to this goal as their parent)
 
@@ -67,7 +72,7 @@ Master Life Goals (root)
 **Root Goal** (no parent):
 ```yaml
 ---
-priority: 10
+priority: 1
 expectedAcquireDate: "[[2025-12-31]]"
 ---
 # Master Life Goals
@@ -77,7 +82,7 @@ expectedAcquireDate: "[[2025-12-31]]"
 ```yaml
 ---
 goal: "[[Master Life Goals]]"
-priority: 8
+priority: 2
 expectedAcquireDate: "[[2025-06-30]]"
 ---
 # Career Goals
@@ -87,51 +92,81 @@ expectedAcquireDate: "[[2025-06-30]]"
 ```yaml
 ---
 goal: "[[Career Goals]]"
-priority: 5
+priority: 1
 progress: 75
 expectedAcquireDate: "[[2025-03-15]]"
 ---
 # Learn TypeScript
 ```
 
+**Blocked Goal**:
+```yaml
+---
+goal: "[[Career Goals]]"
+priority: 2
+progress: 25
+blocked: true
+---
+# Get Promotion
+```
+
 ## Computed Properties
 
 The plugin automatically adds computed properties (prefixed with `_`) to your goal files:
+
+### Core Properties
 
 | Property | Description | Applies To |
 |----------|-------------|------------|
 | `_rootGoal` | Link to the topmost goal in the hierarchy | All goals |
 | `_rootGoalPriority` | Priority value of the root goal | All goals |
-| `_chainPriority` | Product of all priorities from root to this goal | Non-root goals |
+| `_chainPriority` | Sum of all priorities from root to this goal (lower = more important) | Non-root goals |
+| `_depth` | Levels from root (root = 0, direct child = 1, etc.) | All goals |
+
+### Status Properties
+
+| Property | Description | Applies To |
+|----------|-------------|------------|
+| `_status` | Current status: `not-started`, `in-progress`, `completed`, or `overdue` | All goals |
+| `_daysRemaining` | Days until expected date (negative if overdue) | All goals with dates |
+| `_isOverdue` | Boolean flag for overdue goals (false if completed) | All goals |
+| `_completedDate` | Daily note link when progress reached 100% | Completed goals |
+
+### Hierarchy Properties
+
+| Property | Description | Applies To |
+|----------|-------------|------------|
 | `_childCount` | Number of direct children | Parent goals |
 | `_children` | List of links to direct children | Parent goals |
-| `_calculatedProgress` | Average progress of all descendants | Parent goals |
+| `_totalDescendants` | Count of all descendants (recursive) | Parent goals |
+| `_leafCount` | Number of actionable leaf goals underneath | Parent goals |
+| `_hasBlockedChildren` | True if any descendant is blocked | Parent goals |
+
+### Calculated Properties
+
+| Property | Description | Applies To |
+|----------|-------------|------------|
+| `_calculatedProgress` | Weighted average progress of all descendants | Parent goals |
 | `_calculatedExpectedAcquireDate` | Latest date among all descendants | Parent goals |
 | `_goalYear` | Year extracted from date (e.g., 2025) | All goals with dates |
 | `_goalQuarter` | Quarter extracted from date (Q1-Q4) | All goals with dates |
 
 ### Example: Computed Properties in Action
 
-**Before** (leaf goal):
-```yaml
----
-goal: "[[Career Goals]]"
-priority: 5
-progress: 75
-expectedAcquireDate: "[[2025-03-15]]"
----
-```
-
-**After** (plugin adds computed properties):
+**Leaf goal** (after plugin processes):
 ```yaml
 ---
 _rootGoal: "[[Master Life Goals]]"
-_rootGoalPriority: 10
-_chainPriority: 400
+_rootGoalPriority: 1
+_chainPriority: 4
+_depth: 2
+_status: in-progress
+_daysRemaining: 45
+_isOverdue: false
 _goalYear: 2025
 _goalQuarter: Q1
 goal: "[[Career Goals]]"
-priority: 5
+priority: 1
 progress: 75
 expectedAcquireDate: "[[2025-03-15]]"
 ---
@@ -141,56 +176,82 @@ expectedAcquireDate: "[[2025-03-15]]"
 ```yaml
 ---
 _rootGoal: "[[Master Life Goals]]"
-_rootGoalPriority: 10
-_chainPriority: 80
+_rootGoalPriority: 1
+_chainPriority: 3
+_depth: 1
+_status: in-progress
+_daysRemaining: 152
+_isOverdue: false
+_hasBlockedChildren: true
 _childCount: 2
 _children:
   - "[[Learn TypeScript]]"
   - "[[Get Promotion]]"
-_calculatedProgress: 63
+_totalDescendants: 2
+_leafCount: 2
+_calculatedProgress: 58
 _calculatedExpectedAcquireDate: "[[2025-06-30]]"
 _goalYear: 2025
 _goalQuarter: Q2
 goal: "[[Master Life Goals]]"
-priority: 8
-expectedAcquireDate: "[[2025-06-30]]"
+priority: 2
 ---
 ```
 
-## Chain Priority Explained
+## Priority System
 
-Chain priority helps you understand the "weighted importance" of a goal within its hierarchy. It's calculated by multiplying all priorities from the root goal down to the current goal.
+**Lower priority number = More important** (like rankings: 1st place is best)
+
+### Chain Priority
+
+Chain priority is the **sum** of all priorities from root to the current goal. Lower values indicate goals that are important AND belong to important parent goals.
 
 **Example**:
 ```
-Master Life Goals (priority: 10)
-└── Career Goals (priority: 8)
-    └── Learn TypeScript (priority: 5)
+Master Life Goals (priority: 1)
+└── Career Goals (priority: 2)
+    └── Learn TypeScript (priority: 1)
 ```
 
 - Master Life Goals: No chain priority (is root)
-- Career Goals: `_chainPriority` = 10 × 8 = **80**
-- Learn TypeScript: `_chainPriority` = 10 × 8 × 5 = **400**
+- Career Goals: `_chainPriority` = 1 + 2 = **3**
+- Learn TypeScript: `_chainPriority` = 1 + 2 + 1 = **4**
 
-Higher chain priority indicates goals that are important AND belong to important parent goals.
+### Weighted Progress
 
-## Progress Calculation
-
-Progress flows **up** the hierarchy:
-
-1. **Leaf goals** (no children): Use their own `progress` property
-2. **Parent goals**: Calculate average of all children's progress (recursive)
-
-The `progress` property is automatically removed from parent goals since `_calculatedProgress` replaces it.
+Progress is weighted by priority - higher priority children (lower numbers) contribute more to the parent's progress.
 
 **Example**:
 ```
 Career Goals
-├── Learn TypeScript (progress: 75)
-└── Get Promotion (progress: 50)
+├── Learn TypeScript (priority: 1, progress: 80)
+└── Get Promotion (priority: 3, progress: 20)
 ```
 
-Career Goals will have `_calculatedProgress: 63` (average of 75 and 50, rounded)
+Weights are calculated as `maxPriority - priority + 1`:
+- Learn TypeScript: weight = 3 - 1 + 1 = **3**
+- Get Promotion: weight = 3 - 3 + 1 = **1**
+
+Weighted progress = (80×3 + 20×1) / (3+1) = 260/4 = **65%**
+
+(Simple average would be 50%, but the higher priority goal has more influence)
+
+## Status Calculation
+
+Status is automatically determined:
+
+| Status | Condition |
+|--------|-----------|
+| `completed` | Progress >= 100% |
+| `overdue` | Progress < 100% AND expected date has passed |
+| `in-progress` | Progress > 0% but < 100% |
+| `not-started` | Progress = 0% |
+
+## Blocked Goals
+
+Mark any goal as blocked by adding `blocked: true` to its properties. Parent goals will show `_hasBlockedChildren: true` if any goal in their subtree is blocked.
+
+This helps identify which high-level goals are impacted by blockers further down the hierarchy.
 
 ## Date Handling
 
@@ -198,7 +259,9 @@ Dates can be specified as:
 - Daily note links: `[[2025-03-15]]`
 - Plain strings: `2025-03-15`
 
-For parent goals, `_calculatedExpectedAcquireDate` shows the **latest** date among all descendants, representing when the entire goal subtree will be complete.
+For parent goals:
+- `_calculatedExpectedAcquireDate` shows the **latest** date among all descendants
+- `_daysRemaining` is calculated from this aggregated date
 
 ## Usage Tips
 
@@ -209,12 +272,33 @@ The computed properties work seamlessly with Obsidian Bases for creating goal da
 ```
 table
   _rootGoal as "Root Goal",
+  _status as "Status",
   _calculatedProgress as "Progress",
-  _goalQuarter as "Quarter",
-  _chainPriority as "Priority Score"
+  _daysRemaining as "Days Left",
+  _chainPriority as "Priority"
 from "Goals"
-where _calculatedProgress < 100
-sort _chainPriority desc
+where _status != "completed"
+sort _chainPriority asc
+```
+
+**Overdue goals view**:
+```
+table
+  _rootGoal as "Root Goal",
+  _daysRemaining as "Days Overdue",
+  _calculatedProgress as "Progress"
+from "Goals"
+where _isOverdue = true
+sort _daysRemaining asc
+```
+
+**Blocked goals impact view**:
+```
+table
+  _childCount as "Children",
+  _hasBlockedChildren as "Has Blockers"
+from "Goals"
+where _hasBlockedChildren = true
 ```
 
 ### Organizing Goals
@@ -223,6 +307,7 @@ sort _chainPriority desc
 2. Use consistent property names across all goal files
 3. Link child goals to parents using wikilinks: `goal: "[[Parent Goal Name]]"`
 4. Set `progress` only on leaf goals (goals without children)
+5. Use lower priority numbers for more important goals (1 = highest priority)
 
 ### Manual Recalculation
 
@@ -243,3 +328,11 @@ sort _chainPriority desc
 **Progress showing 0?**
 - Ensure leaf goals have numeric `progress` values (0-100)
 - Parent goals derive progress from children only
+
+**Status showing wrong value?**
+- Check that `expectedAcquireDate` uses correct format (YYYY-MM-DD)
+- Verify progress values are correct
+
+**Blocked not propagating?**
+- Ensure `blocked: true` (boolean, not string)
+- Check the blocked property name in settings
