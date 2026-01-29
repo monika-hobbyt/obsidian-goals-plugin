@@ -4,7 +4,7 @@ Automatically calculates and maintains computed properties for hierarchical goal
 
 ## Features
 
-- **Weighted Progress Calculation**: Parent goals show accumulated progress weighted by child priorities (lower priority = more important = higher weight)
+- **Weighted Progress Calculation**: Parent goals show accumulated progress weighted by child priorities (configurable)
 - **Goal Hierarchy Tracking**: Automatically detects and links parent-child relationships between goals
 - **Status Tracking**: Automatic status computation (not-started, in-progress, completed, overdue)
 - **Time-Based Metrics**: Days remaining, overdue detection, and completion date tracking
@@ -13,11 +13,10 @@ Automatically calculates and maintains computed properties for hierarchical goal
 - **Root Goal Inheritance**: Every goal knows its root goal and inherits the root's priority
 - **Chain Priority Calculation**: Sum of priorities from root to leaf (lower = more important)
 - **Date Aggregation**: Parent goals automatically show the latest expected completion date from their children
-- **Year and Quarter Extraction**: Automatically extracts goal year and quarter (Q1-Q4) from dates
-- **Children Links**: Parent goals maintain a list of links to their direct children
+- **Smart Caching**: Only recalculates affected branches when files change
+- **Validation**: Detects orphaned goals, circular references, and missing properties
+- **Customizable**: Toggle property groups, custom prefix, choice of progress calculation method
 - **Property Ordering**: Computed properties are consistently ordered at the top of the properties section
-- **Automatic Updates**: Recalculates on file changes with debouncing to prevent excessive updates
-- **Manual Recalculation**: Ribbon icon and command palette entry for manual triggering
 
 ## Installation
 
@@ -39,6 +38,8 @@ Automatically calculates and maintains computed properties for hierarchical goal
 
 Access settings via Settings → Recursive Goals.
 
+### Property Names
+
 | Setting | Default | Description |
 |---------|---------|-------------|
 | Goals folder | `Goals` | Folder path where goal files are stored |
@@ -47,6 +48,27 @@ Access settings via Settings → Recursive Goals.
 | Priority property | `priority` | Property storing priority value (lower = more important) |
 | Expected acquire date property | `expectedAcquireDate` | Property storing target completion date |
 | Blocked property | `blocked` | Property indicating goal is blocked (boolean) |
+
+### Calculation Options
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| Computed property prefix | `_` | Prefix for all computed properties |
+| Progress calculation method | `weighted` | How to calculate parent progress: `weighted` (by priority) or `simple` (average) |
+
+### Enabled Properties
+
+Toggle which computed property groups are added to your files:
+
+| Toggle | Properties | Default |
+|--------|------------|---------|
+| Root goal tracking | `_rootGoal`, `_rootGoalPriority` | On |
+| Chain priority | `_chainPriority` | On |
+| Depth tracking | `_depth` | On |
+| Status tracking | `_status` | On |
+| Time metrics | `_daysRemaining`, `_isOverdue`, `_completedDate` | On |
+| Hierarchy metrics | `_childCount`, `_children`, `_totalDescendants`, `_leafCount` | On |
+| Blocked tracking | `_hasBlockedChildren` | On |
 
 ## How It Works
 
@@ -58,13 +80,13 @@ Goals are organized in a tree structure using property links. Each goal can have
 
 Example hierarchy:
 ```
-Master Life Goals (root)
-├── Career Goals
-│   ├── Learn TypeScript
-│   └── Get Promotion
-└── Health Goals
-    ├── Run Marathon
-    └── Eat Healthier
+Hobbies (root)
+├── Photography
+│   ├── Learn Portrait Lighting
+│   └── Build Photo Portfolio
+└── Music
+    ├── Learn Guitar
+    └── Record First Song
 ```
 
 ### Setting Up Goals
@@ -75,44 +97,44 @@ Master Life Goals (root)
 priority: 1
 expectedAcquireDate: "[[2025-12-31]]"
 ---
-# Master Life Goals
+# Hobbies
 ```
 
 **Child Goal** (has parent):
 ```yaml
 ---
-goal: "[[Master Life Goals]]"
+goal: "[[Hobbies]]"
 priority: 2
 expectedAcquireDate: "[[2025-06-30]]"
 ---
-# Career Goals
+# Photography
 ```
 
 **Leaf Goal** (no children, has progress):
 ```yaml
 ---
-goal: "[[Career Goals]]"
+goal: "[[Photography]]"
 priority: 1
-progress: 75
-expectedAcquireDate: "[[2025-03-15]]"
+progress: 60
+expectedAcquireDate: "[[2025-04-15]]"
 ---
-# Learn TypeScript
+# Learn Portrait Lighting
 ```
 
 **Blocked Goal**:
 ```yaml
 ---
-goal: "[[Career Goals]]"
+goal: "[[Music]]"
 priority: 2
-progress: 25
+progress: 10
 blocked: true
 ---
-# Get Promotion
+# Record First Song
 ```
 
 ## Computed Properties
 
-The plugin automatically adds computed properties (prefixed with `_`) to your goal files:
+The plugin automatically adds computed properties (prefixed with `_` by default) to your goal files:
 
 ### Core Properties
 
@@ -156,44 +178,44 @@ The plugin automatically adds computed properties (prefixed with `_`) to your go
 **Leaf goal** (after plugin processes):
 ```yaml
 ---
-_rootGoal: "[[Master Life Goals]]"
+_rootGoal: "[[Hobbies]]"
 _rootGoalPriority: 1
 _chainPriority: 4
 _depth: 2
 _status: in-progress
-_daysRemaining: 45
+_daysRemaining: 76
 _isOverdue: false
 _goalYear: 2025
-_goalQuarter: Q1
-goal: "[[Career Goals]]"
+_goalQuarter: Q2
+goal: "[[Photography]]"
 priority: 1
-progress: 75
-expectedAcquireDate: "[[2025-03-15]]"
+progress: 60
+expectedAcquireDate: "[[2025-04-15]]"
 ---
 ```
 
 **Parent goal with children**:
 ```yaml
 ---
-_rootGoal: "[[Master Life Goals]]"
+_rootGoal: "[[Hobbies]]"
 _rootGoalPriority: 1
 _chainPriority: 3
 _depth: 1
 _status: in-progress
 _daysRemaining: 152
 _isOverdue: false
-_hasBlockedChildren: true
+_hasBlockedChildren: false
 _childCount: 2
 _children:
-  - "[[Learn TypeScript]]"
-  - "[[Get Promotion]]"
+  - "[[Learn Portrait Lighting]]"
+  - "[[Build Photo Portfolio]]"
 _totalDescendants: 2
 _leafCount: 2
-_calculatedProgress: 58
+_calculatedProgress: 45
 _calculatedExpectedAcquireDate: "[[2025-06-30]]"
 _goalYear: 2025
 _goalQuarter: Q2
-goal: "[[Master Life Goals]]"
+goal: "[[Hobbies]]"
 priority: 2
 ---
 ```
@@ -208,14 +230,14 @@ Chain priority is the **sum** of all priorities from root to the current goal. L
 
 **Example**:
 ```
-Master Life Goals (priority: 1)
-└── Career Goals (priority: 2)
-    └── Learn TypeScript (priority: 1)
+Hobbies (priority: 1)
+└── Photography (priority: 2)
+    └── Learn Portrait Lighting (priority: 1)
 ```
 
-- Master Life Goals: No chain priority (is root)
-- Career Goals: `_chainPriority` = 1 + 2 = **3**
-- Learn TypeScript: `_chainPriority` = 1 + 2 + 1 = **4**
+- Hobbies: No chain priority (is root)
+- Photography: `_chainPriority` = 1 + 2 = **3**
+- Learn Portrait Lighting: `_chainPriority` = 1 + 2 + 1 = **4**
 
 ### Weighted Progress
 
@@ -223,18 +245,20 @@ Progress is weighted by priority - higher priority children (lower numbers) cont
 
 **Example**:
 ```
-Career Goals
-├── Learn TypeScript (priority: 1, progress: 80)
-└── Get Promotion (priority: 3, progress: 20)
+Photography
+├── Learn Portrait Lighting (priority: 1, progress: 80)
+└── Build Photo Portfolio (priority: 3, progress: 20)
 ```
 
 Weights are calculated as `maxPriority - priority + 1`:
-- Learn TypeScript: weight = 3 - 1 + 1 = **3**
-- Get Promotion: weight = 3 - 3 + 1 = **1**
+- Learn Portrait Lighting: weight = 3 - 1 + 1 = **3**
+- Build Photo Portfolio: weight = 3 - 3 + 1 = **1**
 
 Weighted progress = (80×3 + 20×1) / (3+1) = 260/4 = **65%**
 
 (Simple average would be 50%, but the higher priority goal has more influence)
+
+You can switch to simple averaging in settings if preferred.
 
 ## Status Calculation
 
@@ -253,6 +277,30 @@ Mark any goal as blocked by adding `blocked: true` to its properties. Parent goa
 
 This helps identify which high-level goals are impacted by blockers further down the hierarchy.
 
+## Validation
+
+The plugin validates your goal hierarchy and warns about issues:
+
+- **Orphaned goals**: Goals linking to non-existent parents
+- **Circular references**: Goals that form loops in the hierarchy
+- **Missing progress**: Leaf goals without progress values
+- **Missing dates**: Goals without expected acquire dates
+- **Missing priority**: Goals without priority values
+
+Run validation via command palette: **"Recursive Goals: Validate goal hierarchy"**
+
+Critical issues (orphaned/circular) trigger automatic warnings during processing.
+
+## Smart Caching
+
+The plugin uses smart caching to improve performance:
+
+- Only rebuilds the goal graph when files change
+- Only updates affected branches (changed file + ancestors + descendants)
+- Full cache invalidation on file delete/rename
+
+This makes the plugin efficient even with large goal hierarchies.
+
 ## Date Handling
 
 Dates can be specified as:
@@ -262,6 +310,15 @@ Dates can be specified as:
 For parent goals:
 - `_calculatedExpectedAcquireDate` shows the **latest** date among all descendants
 - `_daysRemaining` is calculated from this aggregated date
+
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| Recalculate all goals | Manually trigger full recalculation |
+| Validate goal hierarchy | Check for issues and show report |
+
+Access via command palette (Ctrl/Cmd + P) or ribbon icon (target icon).
 
 ## Usage Tips
 
@@ -301,6 +358,18 @@ from "Goals"
 where _hasBlockedChildren = true
 ```
 
+**Hobby progress dashboard**:
+```
+table
+  _depth as "Level",
+  _status as "Status",
+  _calculatedProgress as "Progress",
+  _leafCount as "Tasks"
+from "Goals"
+where _rootGoal = "[[Hobbies]]"
+sort _depth asc, _chainPriority asc
+```
+
 ### Organizing Goals
 
 1. Create a dedicated folder for goals (default: `Goals`)
@@ -309,10 +378,9 @@ where _hasBlockedChildren = true
 4. Set `progress` only on leaf goals (goals without children)
 5. Use lower priority numbers for more important goals (1 = highest priority)
 
-### Manual Recalculation
+### Custom Property Prefix
 
-- Click the **target icon** in the ribbon, or
-- Use command palette: "Recursive Goals: Recalculate all goals"
+If `_` conflicts with other plugins, change the prefix in settings. For example, using `computed_` would create properties like `computed_rootGoal`, `computed_status`, etc.
 
 ## Troubleshooting
 
@@ -322,8 +390,8 @@ where _hasBlockedChildren = true
 - Try manual recalculation via ribbon icon
 
 **Circular references?**
+- Run "Validate goal hierarchy" to identify loops
 - The plugin includes cycle detection and will skip circular references
-- Check your goal hierarchy for loops
 
 **Progress showing 0?**
 - Ensure leaf goals have numeric `progress` values (0-100)
@@ -336,3 +404,7 @@ where _hasBlockedChildren = true
 **Blocked not propagating?**
 - Ensure `blocked: true` (boolean, not string)
 - Check the blocked property name in settings
+
+**Performance issues?**
+- The plugin uses smart caching; only affected branches update
+- For very large hierarchies, consider disabling unused property groups in settings
