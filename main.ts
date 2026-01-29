@@ -20,12 +20,15 @@ const COMPUTED_PROPERTY_ORDER = [
 	"_rootGoal",
 	"_rootGoalPriority",
 	"_chainPriority",
+	"_depth",
 	"_status",
 	"_daysRemaining",
 	"_isOverdue",
 	"_completedDate",
 	"_childCount",
 	"_children",
+	"_totalDescendants",
+	"_leafCount",
 	"_calculatedProgress",
 	"_calculatedExpectedAcquireDate",
 	"_goalYear",
@@ -323,6 +326,52 @@ export default class RecursiveGoalsPlugin extends Plugin {
 		return `${year}-${month}-${day}`;
 	}
 
+	calculateDepth(graph: Map<string, GoalNode>, path: string, visited: Set<string> = new Set()): number {
+		if (visited.has(path)) return 0;
+		visited.add(path);
+
+		const node = graph.get(path);
+		if (!node) return 0;
+
+		if (!node.parentPath || !graph.has(node.parentPath)) {
+			return 0;
+		}
+
+		return 1 + this.calculateDepth(graph, node.parentPath, visited);
+	}
+
+	countTotalDescendants(graph: Map<string, GoalNode>, path: string, visited: Set<string> = new Set()): number {
+		if (visited.has(path)) return 0;
+		visited.add(path);
+
+		const node = graph.get(path);
+		if (!node) return 0;
+
+		let count = node.children.length;
+		for (const childPath of node.children) {
+			count += this.countTotalDescendants(graph, childPath, visited);
+		}
+		return count;
+	}
+
+	countLeafGoals(graph: Map<string, GoalNode>, path: string, visited: Set<string> = new Set()): number {
+		if (visited.has(path)) return 0;
+		visited.add(path);
+
+		const node = graph.get(path);
+		if (!node) return 0;
+
+		if (node.children.length === 0) {
+			return 1;
+		}
+
+		let count = 0;
+		for (const childPath of node.children) {
+			count += this.countLeafGoals(graph, childPath, visited);
+		}
+		return count;
+	}
+
 	reorderProperties(properties: Record<string, any>): void {
 		const computed: Record<string, any> = {};
 		const regular: Record<string, any> = {};
@@ -364,7 +413,11 @@ export default class RecursiveGoalsPlugin extends Plugin {
 				properties["_chainPriority"] = this.calculateChainPriority(graph, path);
 			}
 
+			properties["_depth"] = this.calculateDepth(graph, path);
+
 			if (hasChildren) {
+				properties["_totalDescendants"] = this.countTotalDescendants(graph, path);
+				properties["_leafCount"] = this.countLeafGoals(graph, path);
 				properties["_childCount"] = node.children.length;
 				properties["_children"] = this.getChildrenLinks(graph, path);
 
