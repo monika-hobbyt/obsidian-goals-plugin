@@ -193,21 +193,29 @@ export default class RecursiveGoalsPlugin extends Plugin {
 			return node.progress;
 		}
 
-		let weightedSum = 0;
-		let totalPriority = 0;
-
+		const childData: { progress: number; priority: number }[] = [];
 		for (const childPath of node.children) {
 			const child = graph.get(childPath);
 			if (!child) continue;
-
-			const childProgress = this.calculateAccumulatedProgress(graph, childPath, visited);
-			const priority = child.priority || 1;
-
-			weightedSum += childProgress * priority;
-			totalPriority += priority;
+			childData.push({
+				progress: this.calculateAccumulatedProgress(graph, childPath, visited),
+				priority: child.priority || 1,
+			});
 		}
 
-		return totalPriority > 0 ? weightedSum / totalPriority : 0;
+		if (childData.length === 0) return 0;
+
+		const maxPriority = Math.max(...childData.map((c) => c.priority));
+		let weightedSum = 0;
+		let totalWeight = 0;
+
+		for (const child of childData) {
+			const weight = maxPriority - child.priority + 1;
+			weightedSum += child.progress * weight;
+			totalWeight += weight;
+		}
+
+		return totalWeight > 0 ? weightedSum / totalWeight : 0;
 	}
 
 	findRootGoal(graph: Map<string, GoalNode>, path: string, visited: Set<string> = new Set()): GoalNode | null {
@@ -235,8 +243,8 @@ export default class RecursiveGoalsPlugin extends Plugin {
 			return node.priority;
 		}
 
-		const parentPriority = this.calculateChainPriority(graph, node.parentPath, visited);
-		return parentPriority * node.priority;
+		const parentChainPriority = this.calculateChainPriority(graph, node.parentPath, visited);
+		return parentChainPriority + node.priority;
 	}
 
 	findLatestDate(graph: Map<string, GoalNode>, path: string, visited: Set<string> = new Set()): string | null {
