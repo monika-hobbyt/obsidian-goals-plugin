@@ -178,6 +178,29 @@ export default class RecursiveGoalsPlugin extends Plugin {
 		}
 		return latest;
 	}
+
+	getYearFromDate(dateStr: string | null): number | null {
+		if (!dateStr) return null;
+		const match = dateStr.match(/(\d{4})/);
+		return match ? parseInt(match[1]) : null;
+	}
+
+	getQuarterFromDate(dateStr: string | null): string | null {
+		if (!dateStr) return null;
+		const match = dateStr.match(/\d{4}-(\d{2})/);
+		if (!match) return null;
+		const month = parseInt(match[1]);
+		if (month <= 3) return "Q1";
+		if (month <= 6) return "Q2";
+		if (month <= 9) return "Q3";
+		return "Q4";
+	}
+
+	formatDateAsLink(dateStr: string | null): string | null {
+		if (!dateStr) return null;
+		const match = dateStr.match(/(\d{4}-\d{2}-\d{2})/);
+		return match ? `[[${match[1]}]]` : null;
+	}
 }
 
 class RecursiveGoalsSettingTab extends PluginSettingTab {
