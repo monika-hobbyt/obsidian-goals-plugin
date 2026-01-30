@@ -77,6 +77,68 @@ export class RecursiveGoalsSettingTab extends PluginSettingTab {
 				})
 			);
 
+		containerEl.createEl("h3", { text: "Workflow Properties" });
+
+		new Setting(containerEl)
+			.setName("Node type property")
+			.setDesc("Property storing node type (strategic-goal, sub-goal, project, stage, task, sub-task)")
+			.addText((text) =>
+				text.setValue(this.plugin.settings.nodeTypeProperty).onChange(async (value) => {
+					this.plugin.settings.nodeTypeProperty = value;
+					await this.plugin.saveSettings();
+				})
+			);
+
+		new Setting(containerEl)
+			.setName("Category property")
+			.setDesc("Property storing workflow category (inbox, active, incubator, archive, history)")
+			.addText((text) =>
+				text.setValue(this.plugin.settings.categoryProperty).onChange(async (value) => {
+					this.plugin.settings.categoryProperty = value;
+					await this.plugin.saveSettings();
+				})
+			);
+
+		new Setting(containerEl)
+			.setName("Size property")
+			.setDesc("Property storing task size (S, M, L)")
+			.addText((text) =>
+				text.setValue(this.plugin.settings.sizeProperty).onChange(async (value) => {
+					this.plugin.settings.sizeProperty = value;
+					await this.plugin.saveSettings();
+				})
+			);
+
+		new Setting(containerEl)
+			.setName("Energy type property")
+			.setDesc("Property storing energy type (creative, administrative)")
+			.addText((text) =>
+				text.setValue(this.plugin.settings.energyTypeProperty).onChange(async (value) => {
+					this.plugin.settings.energyTypeProperty = value;
+					await this.plugin.saveSettings();
+				})
+			);
+
+		new Setting(containerEl)
+			.setName("Assignee property")
+			.setDesc("Property storing who is assigned to the task")
+			.addText((text) =>
+				text.setValue(this.plugin.settings.assigneeProperty).onChange(async (value) => {
+					this.plugin.settings.assigneeProperty = value;
+					await this.plugin.saveSettings();
+				})
+			);
+
+		new Setting(containerEl)
+			.setName("Urgent property")
+			.setDesc("Property indicating task is urgent/time-sensitive (boolean)")
+			.addText((text) =>
+				text.setValue(this.plugin.settings.urgentProperty).onChange(async (value) => {
+					this.plugin.settings.urgentProperty = value;
+					await this.plugin.saveSettings();
+				})
+			);
+
 		containerEl.createEl("h3", { text: "Calculation Options" });
 
 		new Setting(containerEl)
@@ -187,6 +249,30 @@ export class RecursiveGoalsSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.enabledProperties.blockedTracking)
 					.onChange(async (value) => {
 						this.plugin.settings.enabledProperties.blockedTracking = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
+			.setName("Node type inference")
+			.setDesc("Add _nodeType and _isLeaf (auto-inferred from hierarchy)")
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.enabledProperties.nodeType)
+					.onChange(async (value) => {
+						this.plugin.settings.enabledProperties.nodeType = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
+			.setName("Workflow tracking")
+			.setDesc("Add _hasUrgentChildren, _totalTimeEstimate")
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.enabledProperties.workflowTracking)
+					.onChange(async (value) => {
+						this.plugin.settings.enabledProperties.workflowTracking = value;
 						await this.plugin.saveSettings();
 					})
 			);

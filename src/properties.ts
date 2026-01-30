@@ -1,11 +1,12 @@
 import { App } from "obsidian";
-import { GoalNode, RecursiveGoalsSettings, COMPUTED_PROPERTY_ORDER } from "./types";
+import { GoalNode, RecursiveGoalsSettings, COMPUTED_PROPERTY_ORDER, getManualPropertyOrder } from "./types";
 import {
 	calculateAccumulatedProgress,
 	calculateChainPriority,
 	calculateDepth,
 	calculateDaysRemaining,
 	calculateStatus,
+	calculateTotalTimeEstimate,
 	countLeafGoals,
 	countTotalDescendants,
 	findLatestDate,
@@ -16,6 +17,8 @@ import {
 	getTodayDateString,
 	getYearFromDate,
 	hasBlockedDescendants,
+	hasUrgentDescendants,
+	inferNodeType,
 	isOverdue,
 } from "./calculations";
 
@@ -23,27 +26,43 @@ export function getComputedPropertyOrder(prefix: string): string[] {
 	return COMPUTED_PROPERTY_ORDER.map((p) => p.replace(/^_/, prefix));
 }
 
-export function reorderProperties(properties: Record<string, any>, prefix: string): void {
+export function reorderProperties(
+	properties: Record<string, any>,
+	settings: RecursiveGoalsSettings
+): void {
+	const prefix = settings.computedPropertyPrefix;
+	const computedOrder = getComputedPropertyOrder(prefix);
+	const manualOrder = getManualPropertyOrder(settings);
+
 	const computed: Record<string, any> = {};
-	const regular: Record<string, any> = {};
+	const manual: Record<string, any> = {};
+	const other: Record<string, any> = {};
 
 	for (const key of Object.keys(properties)) {
 		if (key.startsWith(prefix)) {
 			computed[key] = properties[key];
+		} else if (manualOrder.includes(key)) {
+			manual[key] = properties[key];
 		} else {
-			regular[key] = properties[key];
+			other[key] = properties[key];
 		}
 		delete properties[key];
 	}
 
-	for (const key of getComputedPropertyOrder(prefix)) {
+	for (const key of computedOrder) {
 		if (computed[key] !== undefined) {
 			properties[key] = computed[key];
 		}
 	}
 
-	for (const key of Object.keys(regular)) {
-		properties[key] = regular[key];
+	for (const key of manualOrder) {
+		if (manual[key] !== undefined) {
+			properties[key] = manual[key];
+		}
+	}
+
+	for (const key of Object.keys(other)) {
+		properties[key] = other[key];
 	}
 }
 
@@ -75,6 +94,11 @@ export async function updateGoalFile(
 			properties[`${prefix}depth`] = calculateDepth(graph, path);
 		}
 
+		if (enabled.nodeType) {
+			properties[`${prefix}nodeType`] = inferNodeType(graph, path);
+			properties[`${prefix}isLeaf`] = !hasChildren;
+		}
+
 		if (hasChildren) {
 			if (enabled.hierarchyMetrics) {
 				properties[`${prefix}totalDescendants`] = countTotalDescendants(graph, path);
@@ -85,6 +109,14 @@ export async function updateGoalFile(
 
 			if (enabled.blockedTracking) {
 				properties[`${prefix}hasBlockedChildren`] = hasBlockedDescendants(graph, path);
+			}
+
+			if (enabled.workflowTracking) {
+				properties[`${prefix}hasUrgentChildren`] = hasUrgentDescendants(graph, path);
+				const totalTime = calculateTotalTimeEstimate(graph, path);
+				if (totalTime > 0) {
+					properties[`${prefix}totalTimeEstimate`] = totalTime;
+				}
 			}
 
 			const calculatedProgress = Math.round(
@@ -140,6 +172,6 @@ export async function updateGoalFile(
 			}
 		}
 
-		reorderProperties(properties, prefix);
+		reorderProperties(properties, settings);
 	});
 }

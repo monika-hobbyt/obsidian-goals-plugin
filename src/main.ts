@@ -1,9 +1,10 @@
 import { Notice, Plugin, TFile } from "obsidian";
-import { RecursiveGoalsSettings, DEFAULT_SETTINGS, GoalNode } from "./types";
+import { RecursiveGoalsSettings, DEFAULT_SETTINGS, GoalNode, Category, CATEGORY_LABELS, TaskSize } from "./types";
 import { RecursiveGoalsSettingTab } from "./settings";
 import { buildGoalGraph, isGoalFile } from "./graph";
 import { updateGoalFile } from "./properties";
 import { validateGoalGraph, formatIssuesForNotice } from "./validation";
+import { installTemplates } from "./templates";
 
 export default class RecursiveGoalsPlugin extends Plugin {
 	settings: RecursiveGoalsSettings;
@@ -36,7 +37,84 @@ export default class RecursiveGoalsPlugin extends Plugin {
 			},
 		});
 
-		this.app.workspace.onLayoutReady(() => {
+		this.addCommand({
+			id: "move-to-inbox",
+			name: "Move to Inbox",
+			checkCallback: (checking) => this.moveToCategory(checking, "inbox"),
+		});
+
+		this.addCommand({
+			id: "move-to-active",
+			name: "Move to Active",
+			checkCallback: (checking) => this.moveToCategory(checking, "active"),
+		});
+
+		this.addCommand({
+			id: "move-to-incubator",
+			name: "Move to Incubator",
+			checkCallback: (checking) => this.moveToCategory(checking, "incubator"),
+		});
+
+		this.addCommand({
+			id: "move-to-archive",
+			name: "Move to Archive",
+			checkCallback: (checking) => this.moveToCategory(checking, "archive"),
+		});
+
+		this.addCommand({
+			id: "move-to-history",
+			name: "Move to History",
+			checkCallback: (checking) => this.moveToCategory(checking, "history"),
+		});
+
+		this.addCommand({
+			id: "toggle-urgent",
+			name: "Toggle Urgent",
+			checkCallback: (checking) => this.toggleProperty(checking, "urgent"),
+		});
+
+		this.addCommand({
+			id: "toggle-blocked",
+			name: "Toggle Blocked",
+			checkCallback: (checking) => this.toggleProperty(checking, "blocked"),
+		});
+
+		this.addCommand({
+			id: "set-size-small",
+			name: "Set Size: Small (0.5h)",
+			checkCallback: (checking) => this.setSize(checking, "S"),
+		});
+
+		this.addCommand({
+			id: "set-size-medium",
+			name: "Set Size: Medium (2h)",
+			checkCallback: (checking) => this.setSize(checking, "M"),
+		});
+
+		this.addCommand({
+			id: "set-size-large",
+			name: "Set Size: Large (4h)",
+			checkCallback: (checking) => this.setSize(checking, "L"),
+		});
+
+		this.addCommand({
+			id: "install-templates",
+			name: "Install goal templates",
+			callback: async () => {
+				const installed = await installTemplates(this.app);
+				if (installed > 0) {
+					new Notice(`Installed ${installed} template(s) in Templates folder`);
+				} else {
+					new Notice("All templates already exist");
+				}
+			},
+		});
+
+		this.app.workspace.onLayoutReady(async () => {
+			const installed = await installTemplates(this.app);
+			if (installed > 0) {
+				new Notice(`Recursive Goals: Installed ${installed} template(s) in Templates folder`);
+			}
 			this.processAllGoals();
 		});
 
@@ -78,6 +156,72 @@ export default class RecursiveGoalsPlugin extends Plugin {
 		const issues = validateGoalGraph(graph, this.settings);
 		const message = formatIssuesForNotice(issues);
 		new Notice(message, issues.length > 0 ? 10000 : 3000);
+	}
+
+	private moveToCategory(checking: boolean, category: Category): boolean {
+		const file = this.app.workspace.getActiveFile();
+		if (!file || !isGoalFile(file, this.settings)) {
+			return false;
+		}
+
+		if (!checking) {
+			this.setFileCategory(file, category);
+		}
+		return true;
+	}
+
+	private async setFileCategory(file: TFile, category: Category): Promise<void> {
+		await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
+			frontmatter[this.settings.categoryProperty] = category;
+		});
+		new Notice(`Moved "${file.basename}" to ${CATEGORY_LABELS[category]}`);
+	}
+
+	private toggleProperty(checking: boolean, property: "urgent" | "blocked"): boolean {
+		const file = this.app.workspace.getActiveFile();
+		if (!file || !isGoalFile(file, this.settings)) {
+			return false;
+		}
+
+		if (!checking) {
+			this.toggleFileProperty(file, property);
+		}
+		return true;
+	}
+
+	private async toggleFileProperty(file: TFile, property: "urgent" | "blocked"): Promise<void> {
+		const propName = property === "urgent"
+			? this.settings.urgentProperty
+			: this.settings.blockedProperty;
+
+		let newValue = false;
+		await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
+			newValue = !frontmatter[propName];
+			frontmatter[propName] = newValue;
+		});
+
+		const label = property === "urgent" ? "Urgent" : "Blocked";
+		new Notice(`${file.basename}: ${label} ${newValue ? "ON" : "OFF"}`);
+	}
+
+	private setSize(checking: boolean, size: TaskSize): boolean {
+		const file = this.app.workspace.getActiveFile();
+		if (!file || !isGoalFile(file, this.settings)) {
+			return false;
+		}
+
+		if (!checking) {
+			this.setFileSize(file, size);
+		}
+		return true;
+	}
+
+	private async setFileSize(file: TFile, size: TaskSize): Promise<void> {
+		await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
+			frontmatter[this.settings.sizeProperty] = size;
+		});
+		const hours = size === "S" ? "0.5h" : size === "M" ? "2h" : "4h";
+		new Notice(`${file.basename}: Size set to ${size} (${hours})`);
 	}
 
 	onunload() {}
