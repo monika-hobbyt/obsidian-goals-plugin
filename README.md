@@ -49,6 +49,17 @@ Access settings via Settings → Recursive Goals.
 | Expected acquire date property | `expectedAcquireDate` | Property storing target completion date |
 | Blocked property | `blocked` | Property indicating goal is blocked (boolean) |
 
+### Workflow Properties
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| Node type property | `nodeType` | Type: strategic-goal, sub-goal, project, stage, task, sub-task |
+| Category property | `category` | Workflow state: inbox, active, incubator, archive, history |
+| Size property | `size` | Task size: S (0.5h), M (2h), L (4h) |
+| Energy type property | `energyType` | Energy required: creative, administrative |
+| Assignee property | `assignee` | Person assigned to the task |
+| Urgent property | `urgent` | Boolean flag for time-sensitive items |
+
 ### Calculation Options
 
 | Setting | Default | Description |
@@ -69,6 +80,64 @@ Toggle which computed property groups are added to your files:
 | Time metrics | `_daysRemaining`, `_isOverdue`, `_completedDate` | On |
 | Hierarchy metrics | `_childCount`, `_children`, `_totalDescendants`, `_leafCount` | On |
 | Blocked tracking | `_hasBlockedChildren` | On |
+| Node type inference | `_nodeType`, `_isLeaf` | On |
+| Workflow tracking | `_hasUrgentChildren`, `_totalTimeEstimate` | On |
+
+## Workflow System
+
+The plugin implements a PARA-inspired workflow for managing ideas and tasks.
+
+### Categories
+
+| Category | Description |
+|----------|-------------|
+| **inbox** | New ideas that need processing/triage |
+| **active** | Items you're currently working on |
+| **incubator** | Ideas that need time to mature |
+| **archive** | Completed or paused items |
+| **history** | Reference-only items |
+
+### Workflow Transitions
+
+```
+inbox -> active      (ready to work on)
+inbox -> incubator   (needs more thought)
+inbox -> archive     (not relevant now)
+
+active -> archive    (completed or paused)
+active -> incubator  (blocked, needs rethinking)
+
+incubator -> active  (idea is mature, ready to act)
+incubator -> archive (decided not to pursue)
+
+archive -> history   (for long-term reference)
+archive -> active    (reactivating old item)
+```
+
+### Node Types
+
+The plugin auto-infers node type from hierarchy depth:
+
+| Depth | With Children | Without Children |
+|-------|---------------|------------------|
+| 0 | strategic-goal | strategic-goal |
+| 1 | sub-goal | project |
+| 2 | project | task |
+| 3 | stage | task |
+| 4 | task | sub-task |
+| 5+ | sub-task | sub-task |
+
+You can override by setting `nodeType` manually.
+
+### Task Sizing
+
+| Size | Time Estimate |
+|------|---------------|
+| S | 0.5 hours |
+| M | 2 hours |
+| L | 4 hours |
+
+Parent nodes show `_totalTimeEstimate` as the sum of all leaf task sizes.
 
 ## How It Works
 
@@ -279,13 +348,31 @@ This helps identify which high-level goals are impacted by blockers further down
 
 ## Validation
 
-The plugin validates your goal hierarchy and warns about issues:
+The plugin validates your goal hierarchy and categorizes issues by severity.
 
-- **Orphaned goals**: Goals linking to non-existent parents
-- **Circular references**: Goals that form loops in the hierarchy
-- **Missing progress**: Leaf goals without progress values
-- **Missing dates**: Goals without expected acquire dates
-- **Missing priority**: Goals without priority values
+### Errors (Critical)
+
+| Issue | Description |
+|-------|-------------|
+| Orphaned goals | Goals linking to non-existent parents |
+| Circular references | Goals that form loops in the hierarchy |
+
+### Warnings
+
+| Issue | Description |
+|-------|-------------|
+| Missing progress | Active leaf goals without progress |
+| Missing date | Active goals without expected date |
+| Missing priority | Active goals without priority |
+| Urgent without date | Urgent items without deadline |
+
+### Info
+
+| Issue | Description |
+|-------|-------------|
+| Missing size | Active tasks without size estimate |
+| Missing category | Goals that need triage |
+| In inbox | Items waiting in inbox |
 
 Run validation via command palette: **"Recursive Goals: Validate goal hierarchy"**
 
@@ -313,61 +400,209 @@ For parent goals:
 
 ## Commands
 
+### Core Commands
+
 | Command | Description |
 |---------|-------------|
 | Recalculate all goals | Manually trigger full recalculation |
 | Validate goal hierarchy | Check for issues and show report |
 
+### Workflow Commands
+
+| Command | Description |
+|---------|-------------|
+| Move to Inbox | Set category to inbox (new ideas) |
+| Move to Active | Set category to active (currently working on) |
+| Move to Incubator | Set category to incubator (needs to mature) |
+| Move to Archive | Set category to archive (completed/paused) |
+| Move to History | Set category to history (reference only) |
+| Toggle Urgent | Mark/unmark as time-sensitive |
+| Toggle Blocked | Mark/unmark as blocked |
+| Set Size: Small (0.5h) | Set task size to S |
+| Set Size: Medium (2h) | Set task size to M |
+| Set Size: Large (4h) | Set task size to L |
+
 Access via command palette (Ctrl/Cmd + P) or ribbon icon (target icon).
 
 ## Usage Tips
 
-### Using with Obsidian Bases
+### Dataview Examples
 
-The computed properties work seamlessly with Obsidian Bases for creating goal dashboards:
+The computed properties work with Dataview and Obsidian Bases for creating dashboards.
 
+#### Inbox Processing
+
+Items that need triage:
+```dataview
+TABLE
+  _nodeType as "Type",
+  _rootGoal as "Root Goal"
+FROM "Goals"
+WHERE category = "inbox"
+SORT file.ctime DESC
 ```
-table
-  _rootGoal as "Root Goal",
-  _status as "Status",
-  _calculatedProgress as "Progress",
-  _daysRemaining as "Days Left",
+
+#### Active Work Dashboard
+
+Current tasks sorted by priority:
+```dataview
+TABLE
+  _rootGoal as "Goal",
+  size as "Size",
+  energyType as "Energy",
+  _daysRemaining as "Days Left"
+FROM "Goals"
+WHERE category = "active" AND _isLeaf = true
+SORT _chainPriority ASC
+```
+
+#### Urgent Items
+
+Time-sensitive items requiring attention:
+```dataview
+TABLE
+  _rootGoal as "Goal",
+  expectedAcquireDate as "Due",
+  _daysRemaining as "Days"
+FROM "Goals"
+WHERE urgent = true AND _status != "completed"
+SORT _daysRemaining ASC
+```
+
+#### Daily Planning by Energy Type
+
+Creative work (morning focus):
+```dataview
+LIST
+FROM "Goals"
+WHERE category = "active" AND energyType = "creative" AND _isLeaf = true
+SORT _chainPriority ASC
+LIMIT 5
+```
+
+Administrative work (afternoon):
+```dataview
+LIST
+FROM "Goals"
+WHERE category = "active" AND energyType = "administrative" AND _isLeaf = true
+SORT _chainPriority ASC
+LIMIT 5
+```
+
+#### Quick Wins (Small Tasks)
+
+```dataview
+TABLE
+  _rootGoal as "Goal",
   _chainPriority as "Priority"
-from "Goals"
-where _status != "completed"
-sort _chainPriority asc
+FROM "Goals"
+WHERE category = "active" AND size = "S" AND _isLeaf = true
+SORT _chainPriority ASC
 ```
 
-**Overdue goals view**:
-```
-table
-  _rootGoal as "Root Goal",
-  _daysRemaining as "Days Overdue",
-  _calculatedProgress as "Progress"
-from "Goals"
-where _isOverdue = true
-sort _daysRemaining asc
+#### Blocked Items
+
+```dataview
+TABLE
+  _rootGoal as "Goal",
+  _depth as "Level"
+FROM "Goals"
+WHERE blocked = true
+SORT _rootGoal ASC
 ```
 
-**Blocked goals impact view**:
-```
-table
+#### Projects with Blocked Children
+
+```dataview
+TABLE
   _childCount as "Children",
-  _hasBlockedChildren as "Has Blockers"
-from "Goals"
-where _hasBlockedChildren = true
+  _calculatedProgress as "Progress"
+FROM "Goals"
+WHERE _hasBlockedChildren = true AND _isLeaf = false
+SORT _chainPriority ASC
 ```
 
-**Hobby progress dashboard**:
+#### Overdue Goals
+
+```dataview
+TABLE
+  _rootGoal as "Goal",
+  _daysRemaining as "Days Overdue",
+  progress as "Progress"
+FROM "Goals"
+WHERE _isOverdue = true
+SORT _daysRemaining ASC
 ```
-table
+
+#### Progress by Root Goal
+
+```dataview
+TABLE
+  _calculatedProgress as "Progress",
+  _leafCount as "Tasks",
+  _totalTimeEstimate as "Hours"
+FROM "Goals"
+WHERE _depth = 0
+SORT _calculatedProgress DESC
+```
+
+#### Incubator Review
+
+Ideas that may be ready to activate:
+```dataview
+TABLE
+  _nodeType as "Type",
+  file.ctime as "Added"
+FROM "Goals"
+WHERE category = "incubator"
+SORT file.ctime ASC
+```
+
+#### Time Estimates
+
+Total time by project:
+```dataview
+TABLE
+  _totalTimeEstimate + "h" as "Estimate",
+  _leafCount as "Tasks",
+  _calculatedProgress as "Progress"
+FROM "Goals"
+WHERE _nodeType = "project" OR _nodeType = "sub-goal"
+SORT _totalTimeEstimate DESC
+```
+
+#### Goal Hierarchy Tree
+
+```dataview
+TABLE
+  _nodeType as "Type",
   _depth as "Level",
   _status as "Status",
-  _calculatedProgress as "Progress",
-  _leafCount as "Tasks"
-from "Goals"
-where _rootGoal = "[[Develop Creative Hobbies]]"
-sort _depth asc, _chainPriority asc
+  choice(_isLeaf, progress, _calculatedProgress) as "Progress"
+FROM "Goals"
+WHERE _rootGoal = "[[Your Root Goal]]"
+SORT _depth ASC, _chainPriority ASC
+```
+
+#### Weekly Review: Completed This Week
+
+```dataview
+LIST
+FROM "Goals"
+WHERE _status = "completed" AND _completedDate
+SORT _completedDate DESC
+LIMIT 10
+```
+
+#### Assignee Workload
+
+```dataview
+TABLE
+  rows.file.link as "Tasks",
+  length(rows) as "Count"
+FROM "Goals"
+WHERE category = "active" AND assignee
+GROUP BY assignee
 ```
 
 ### Organizing Goals
