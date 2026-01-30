@@ -4,6 +4,7 @@ import { RecursiveGoalsSettingTab } from "./settings";
 import { buildGoalGraph, isGoalFile } from "./graph";
 import { updateGoalFile } from "./properties";
 import { validateGoalGraph, formatIssuesForNotice } from "./validation";
+import { installTemplates } from "./templates";
 
 export default class RecursiveGoalsPlugin extends Plugin {
 	settings: RecursiveGoalsSettings;
@@ -96,7 +97,24 @@ export default class RecursiveGoalsPlugin extends Plugin {
 			checkCallback: (checking) => this.setSize(checking, "L"),
 		});
 
-		this.app.workspace.onLayoutReady(() => {
+		this.addCommand({
+			id: "install-templates",
+			name: "Install goal templates",
+			callback: async () => {
+				const installed = await installTemplates(this.app);
+				if (installed > 0) {
+					new Notice(`Installed ${installed} template(s) in Templates folder`);
+				} else {
+					new Notice("All templates already exist");
+				}
+			},
+		});
+
+		this.app.workspace.onLayoutReady(async () => {
+			const installed = await installTemplates(this.app);
+			if (installed > 0) {
+				new Notice(`Recursive Goals: Installed ${installed} template(s) in Templates folder`);
+			}
 			this.processAllGoals();
 		});
 

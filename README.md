@@ -421,8 +421,53 @@ For parent goals:
 | Set Size: Small (0.5h) | Set task size to S |
 | Set Size: Medium (2h) | Set task size to M |
 | Set Size: Large (4h) | Set task size to L |
+| Install goal templates | Add goal templates to Templates folder |
 
 Access via command palette (Ctrl/Cmd + P) or ribbon icon (target icon).
+
+## Templates
+
+The plugin automatically installs goal templates in your vault's `Templates` folder on first load:
+
+| Template | Use Case |
+|----------|----------|
+| Goal - Quick Capture | Fast inbox capture for new ideas |
+| Goal - Strategic Goal | Top-level goals (depth 0) |
+| Goal - Sub-goal | Major objectives (depth 1) |
+| Goal - Project | Concrete projects (depth 2) |
+| Goal - Stage | Project phases (depth 3) |
+| Goal - Task | Actionable items (depth 4) |
+| Goal - Sub-task | Small atomic actions (depth 5+) |
+
+Use with Obsidian's core Templates plugin or Templater. Run "Install goal templates" command to restore deleted templates.
+
+## Property Ordering
+
+The plugin automatically maintains consistent property order in all goal files:
+
+```yaml
+# Computed properties (auto-generated, at top)
+_rootGoal: ...
+_chainPriority: ...
+_depth: ...
+# ... other computed properties
+
+# Manual properties (consistent order)
+goal: "[[Parent]]"
+nodeType: task
+category: active
+priority: 1
+progress: 0
+expectedAcquireDate: ...
+size: M
+energyType: creative
+assignee: ...
+blocked: false
+urgent: false
+
+# Other properties (user-defined, at bottom)
+tags: ...
+```
 
 ## Usage Tips
 

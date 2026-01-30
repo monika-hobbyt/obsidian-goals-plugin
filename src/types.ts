@@ -143,3 +143,19 @@ export const SIZE_HOURS: Record<TaskSize, number> = {
 	"M": 2,
 	"L": 4,
 };
+
+export function getManualPropertyOrder(settings: RecursiveGoalsSettings): string[] {
+	return [
+		settings.goalProperty,
+		settings.nodeTypeProperty,
+		settings.categoryProperty,
+		settings.priorityProperty,
+		settings.progressProperty,
+		settings.expectedAcquireDateProperty,
+		settings.sizeProperty,
+		settings.energyTypeProperty,
+		settings.assigneeProperty,
+		settings.blockedProperty,
+		settings.urgentProperty,
+	];
+}
