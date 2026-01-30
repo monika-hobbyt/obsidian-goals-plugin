@@ -290,13 +290,11 @@ export function inferNodeType(
 	const node = graph.get(path);
 	if (!node) return "task";
 
-	// If user specified a type, respect it
 	if (node.nodeType) return node.nodeType;
 
 	const depth = calculateDepth(graph, path);
 	const hasChildren = node.children.length > 0;
 
-	// Auto-infer based on depth and structure
 	if (depth === 0) {
 		return "strategic-goal";
 	} else if (depth === 1) {
@@ -323,15 +321,10 @@ export function calculateTotalTimeEstimate(
 	const node = graph.get(path);
 	if (!node) return 0;
 
-	// If it's a leaf node, return its size in hours
 	if (node.children.length === 0) {
-		if (node.size) {
-			return SIZE_HOURS[node.size];
-		}
-		return 0;
+		return node.size ? SIZE_HOURS[node.size] : 0;
 	}
 
-	// Sum up all children's time estimates
 	let total = 0;
 	for (const childPath of node.children) {
 		total += calculateTotalTimeEstimate(graph, childPath, visited);

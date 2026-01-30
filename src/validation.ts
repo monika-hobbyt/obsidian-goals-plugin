@@ -1,10 +1,22 @@
 import { GoalNode, RecursiveGoalsSettings } from "./types";
 
+export type ValidationIssueType =
+	| "orphaned"
+	| "circular"
+	| "missing-progress"
+	| "missing-date"
+	| "missing-priority"
+	| "missing-size"
+	| "missing-category"
+	| "inbox-stale"
+	| "urgent-no-date";
+
 export interface ValidationIssue {
-	type: "orphaned" | "circular" | "missing-progress" | "missing-date" | "missing-priority";
+	type: ValidationIssueType;
 	path: string;
 	name: string;
 	message: string;
+	severity: "error" | "warning" | "info";
 }
 
 export function validateGoalGraph(
@@ -20,6 +32,7 @@ export function validateGoalGraph(
 				path,
 				name: node.name,
 				message: `"${node.name}" links to non-existent parent goal`,
+				severity: "error",
 			});
 		}
 
@@ -29,35 +42,79 @@ export function validateGoalGraph(
 				path,
 				name: node.name,
 				message: `"${node.name}" is part of a circular reference`,
+				severity: "error",
 			});
 		}
 
 		if (node.children.length === 0) {
-			if (node.progress === 0) {
+			if (node.progress === 0 && node.category === "active") {
 				issues.push({
 					type: "missing-progress",
 					path,
 					name: node.name,
-					message: `Leaf goal "${node.name}" has no progress set`,
+					message: `Active leaf "${node.name}" has no progress set`,
+					severity: "warning",
 				});
 			}
 
-			if (!node.expectedAcquireDate) {
+			if (!node.expectedAcquireDate && node.category === "active") {
 				issues.push({
 					type: "missing-date",
 					path,
 					name: node.name,
-					message: `"${node.name}" has no expected acquire date`,
+					message: `Active goal "${node.name}" has no expected date`,
+					severity: "warning",
+				});
+			}
+
+			if (!node.size && node.category === "active") {
+				issues.push({
+					type: "missing-size",
+					path,
+					name: node.name,
+					message: `Active task "${node.name}" has no size (S/M/L)`,
+					severity: "info",
 				});
 			}
 		}
 
-		if (node.priority === 0) {
+		if (node.priority === 0 && node.category === "active") {
 			issues.push({
 				type: "missing-priority",
 				path,
 				name: node.name,
-				message: `"${node.name}" has no priority set`,
+				message: `Active goal "${node.name}" has no priority set`,
+				severity: "warning",
+			});
+		}
+
+		if (!node.category) {
+			issues.push({
+				type: "missing-category",
+				path,
+				name: node.name,
+				message: `"${node.name}" has no category - needs triage`,
+				severity: "info",
+			});
+		}
+
+		if (node.category === "inbox") {
+			issues.push({
+				type: "inbox-stale",
+				path,
+				name: node.name,
+				message: `"${node.name}" is in inbox - needs processing`,
+				severity: "info",
+			});
+		}
+
+		if (node.urgent && !node.expectedAcquireDate) {
+			issues.push({
+				type: "urgent-no-date",
+				path,
+				name: node.name,
+				message: `Urgent item "${node.name}" has no expected date`,
+				severity: "warning",
 			});
 		}
 	}
@@ -103,8 +160,23 @@ export function formatIssuesForNotice(issues: ValidationIssue[]): string {
 		return "All goals validated successfully!";
 	}
 
+	const errors = issues.filter((i) => i.severity === "error");
+	const warnings = issues.filter((i) => i.severity === "warning");
+	const infos = issues.filter((i) => i.severity === "info");
+
+	const lines: string[] = [];
+
+	if (errors.length > 0) {
+		lines.push(`Errors: ${errors.length}`);
+	}
+	if (warnings.length > 0) {
+		lines.push(`Warnings: ${warnings.length}`);
+	}
+	if (infos.length > 0) {
+		lines.push(`Info: ${infos.length}`);
+	}
+
 	const grouped = groupIssuesByType(issues);
-	const lines: string[] = [`Found ${issues.length} issue(s):`];
 
 	const typeLabels: Record<string, string> = {
 		orphaned: "Orphaned goals",
@@ -112,10 +184,32 @@ export function formatIssuesForNotice(issues: ValidationIssue[]): string {
 		"missing-progress": "Missing progress",
 		"missing-date": "Missing dates",
 		"missing-priority": "Missing priority",
+		"missing-size": "Missing size",
+		"missing-category": "Needs triage",
+		"inbox-stale": "In inbox",
+		"urgent-no-date": "Urgent without date",
 	};
 
-	for (const [type, typeIssues] of grouped) {
-		lines.push(`\n${typeLabels[type] || type} (${typeIssues.length}):`);
+	const orderedTypes: ValidationIssueType[] = [
+		"orphaned",
+		"circular",
+		"urgent-no-date",
+		"missing-progress",
+		"missing-date",
+		"missing-priority",
+		"missing-size",
+		"missing-category",
+		"inbox-stale",
+	];
+
+	for (const type of orderedTypes) {
+		const typeIssues = grouped.get(type);
+		if (!typeIssues || typeIssues.length === 0) continue;
+
+		const severity = typeIssues[0].severity;
+		const icon = severity === "error" ? "❌" : severity === "warning" ? "⚠️" : "ℹ️";
+
+		lines.push(`\n${icon} ${typeLabels[type] || type} (${typeIssues.length}):`);
 		for (const issue of typeIssues.slice(0, 3)) {
 			lines.push(`  - ${issue.name}`);
 		}
@@ -125,4 +219,18 @@ export function formatIssuesForNotice(issues: ValidationIssue[]): string {
 	}
 
 	return lines.join("\n");
+}
+
+export function getValidationSummary(issues: ValidationIssue[]): {
+	errors: number;
+	warnings: number;
+	infos: number;
+	total: number;
+} {
+	return {
+		errors: issues.filter((i) => i.severity === "error").length,
+		warnings: issues.filter((i) => i.severity === "warning").length,
+		infos: issues.filter((i) => i.severity === "info").length,
+		total: issues.length,
+	};
 }
