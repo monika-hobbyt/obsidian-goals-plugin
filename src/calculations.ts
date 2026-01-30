@@ -1,4 +1,4 @@
-import { GoalNode, ProgressCalculationMethod } from "./types";
+import { GoalNode, NodeType, ProgressCalculationMethod, SIZE_HOURS } from "./types";
 
 export function calculateAccumulatedProgress(
 	graph: Map<string, GoalNode>,
@@ -262,4 +262,79 @@ export function hasBlockedDescendants(
 		if (hasBlockedDescendants(graph, childPath, visited)) return true;
 	}
 	return false;
+}
+
+export function hasUrgentDescendants(
+	graph: Map<string, GoalNode>,
+	path: string,
+	visited: Set<string> = new Set()
+): boolean {
+	if (visited.has(path)) return false;
+	visited.add(path);
+
+	const node = graph.get(path);
+	if (!node) return false;
+
+	for (const childPath of node.children) {
+		const child = graph.get(childPath);
+		if (child?.urgent) return true;
+		if (hasUrgentDescendants(graph, childPath, visited)) return true;
+	}
+	return false;
+}
+
+export function inferNodeType(
+	graph: Map<string, GoalNode>,
+	path: string
+): NodeType {
+	const node = graph.get(path);
+	if (!node) return "task";
+
+	// If user specified a type, respect it
+	if (node.nodeType) return node.nodeType;
+
+	const depth = calculateDepth(graph, path);
+	const hasChildren = node.children.length > 0;
+
+	// Auto-infer based on depth and structure
+	if (depth === 0) {
+		return "strategic-goal";
+	} else if (depth === 1) {
+		return hasChildren ? "sub-goal" : "project";
+	} else if (depth === 2) {
+		return hasChildren ? "project" : "task";
+	} else if (depth === 3) {
+		return hasChildren ? "stage" : "task";
+	} else if (depth === 4) {
+		return hasChildren ? "task" : "sub-task";
+	} else {
+		return "sub-task";
+	}
+}
+
+export function calculateTotalTimeEstimate(
+	graph: Map<string, GoalNode>,
+	path: string,
+	visited: Set<string> = new Set()
+): number {
+	if (visited.has(path)) return 0;
+	visited.add(path);
+
+	const node = graph.get(path);
+	if (!node) return 0;
+
+	// If it's a leaf node, return its size in hours
+	if (node.children.length === 0) {
+		if (node.size) {
+			return SIZE_HOURS[node.size];
+		}
+		return 0;
+	}
+
+	// Sum up all children's time estimates
+	let total = 0;
+	for (const childPath of node.children) {
+		total += calculateTotalTimeEstimate(graph, childPath, visited);
+	}
+	return total;
 }

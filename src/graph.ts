@@ -1,5 +1,12 @@
 import { App, TFile } from "obsidian";
-import { GoalNode, RecursiveGoalsSettings } from "./types";
+import {
+	GoalNode,
+	RecursiveGoalsSettings,
+	NodeType,
+	Category,
+	TaskSize,
+	EnergyType,
+} from "./types";
 
 export function extractLinkPath(value: any): string | null {
 	if (!value) return null;
@@ -49,6 +56,94 @@ export function isBlocked(app: App, file: TFile, settings: RecursiveGoalsSetting
 	return properties[settings.blockedProperty] === true;
 }
 
+export function isUrgent(app: App, file: TFile, settings: RecursiveGoalsSettings): boolean {
+	const properties = getProperties(app, file);
+	if (!properties) return false;
+	return properties[settings.urgentProperty] === true;
+}
+
+const VALID_NODE_TYPES: NodeType[] = [
+	"strategic-goal",
+	"sub-goal",
+	"project",
+	"stage",
+	"task",
+	"sub-task",
+];
+
+export function getNodeType(
+	app: App,
+	file: TFile,
+	settings: RecursiveGoalsSettings
+): NodeType | null {
+	const properties = getProperties(app, file);
+	if (!properties) return null;
+	const value = properties[settings.nodeTypeProperty];
+	if (typeof value === "string" && VALID_NODE_TYPES.includes(value as NodeType)) {
+		return value as NodeType;
+	}
+	return null;
+}
+
+const VALID_CATEGORIES: Category[] = ["inbox", "active", "incubator", "archive", "history"];
+
+export function getCategory(
+	app: App,
+	file: TFile,
+	settings: RecursiveGoalsSettings
+): Category | null {
+	const properties = getProperties(app, file);
+	if (!properties) return null;
+	const value = properties[settings.categoryProperty];
+	if (typeof value === "string" && VALID_CATEGORIES.includes(value as Category)) {
+		return value as Category;
+	}
+	return null;
+}
+
+const VALID_SIZES: TaskSize[] = ["S", "M", "L"];
+
+export function getSize(
+	app: App,
+	file: TFile,
+	settings: RecursiveGoalsSettings
+): TaskSize | null {
+	const properties = getProperties(app, file);
+	if (!properties) return null;
+	const value = properties[settings.sizeProperty];
+	if (typeof value === "string" && VALID_SIZES.includes(value.toUpperCase() as TaskSize)) {
+		return value.toUpperCase() as TaskSize;
+	}
+	return null;
+}
+
+const VALID_ENERGY_TYPES: EnergyType[] = ["creative", "administrative"];
+
+export function getEnergyType(
+	app: App,
+	file: TFile,
+	settings: RecursiveGoalsSettings
+): EnergyType | null {
+	const properties = getProperties(app, file);
+	if (!properties) return null;
+	const value = properties[settings.energyTypeProperty];
+	if (typeof value === "string" && VALID_ENERGY_TYPES.includes(value as EnergyType)) {
+		return value as EnergyType;
+	}
+	return null;
+}
+
+export function getAssignee(
+	app: App,
+	file: TFile,
+	settings: RecursiveGoalsSettings
+): string | null {
+	const properties = getProperties(app, file);
+	if (!properties) return null;
+	const value = properties[settings.assigneeProperty];
+	return typeof value === "string" ? value : null;
+}
+
 export function getParentGoal(
 	app: App,
 	file: TFile,
@@ -85,6 +180,12 @@ export function buildGoalGraph(app: App, settings: RecursiveGoalsSettings): Map<
 			blocked: isBlocked(app, file, settings),
 			parentPath: parentGoal?.path || null,
 			children: [],
+			nodeType: getNodeType(app, file, settings),
+			category: getCategory(app, file, settings),
+			size: getSize(app, file, settings),
+			energyType: getEnergyType(app, file, settings),
+			assignee: getAssignee(app, file, settings),
+			urgent: isUrgent(app, file, settings),
 		});
 	}
 

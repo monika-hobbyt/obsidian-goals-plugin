@@ -6,6 +6,7 @@ import {
 	calculateDepth,
 	calculateDaysRemaining,
 	calculateStatus,
+	calculateTotalTimeEstimate,
 	countLeafGoals,
 	countTotalDescendants,
 	findLatestDate,
@@ -16,6 +17,8 @@ import {
 	getTodayDateString,
 	getYearFromDate,
 	hasBlockedDescendants,
+	hasUrgentDescendants,
+	inferNodeType,
 	isOverdue,
 } from "./calculations";
 
@@ -75,6 +78,11 @@ export async function updateGoalFile(
 			properties[`${prefix}depth`] = calculateDepth(graph, path);
 		}
 
+		if (enabled.nodeType) {
+			properties[`${prefix}nodeType`] = inferNodeType(graph, path);
+			properties[`${prefix}isLeaf`] = !hasChildren;
+		}
+
 		if (hasChildren) {
 			if (enabled.hierarchyMetrics) {
 				properties[`${prefix}totalDescendants`] = countTotalDescendants(graph, path);
@@ -85,6 +93,14 @@ export async function updateGoalFile(
 
 			if (enabled.blockedTracking) {
 				properties[`${prefix}hasBlockedChildren`] = hasBlockedDescendants(graph, path);
+			}
+
+			if (enabled.workflowTracking) {
+				properties[`${prefix}hasUrgentChildren`] = hasUrgentDescendants(graph, path);
+				const totalTime = calculateTotalTimeEstimate(graph, path);
+				if (totalTime > 0) {
+					properties[`${prefix}totalTimeEstimate`] = totalTime;
+				}
 			}
 
 			const calculatedProgress = Math.round(
